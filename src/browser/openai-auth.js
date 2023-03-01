@@ -1,19 +1,19 @@
 const delay = require('delay');
 const random = import('random');
-const {ChatGPTPuppeteer} = require('./browser');
+const {ChatGPTPuppeteer} = require('./full-browser');
 const Config = require('../utils/config')
 let hasRecaptchaPlugin = !!Config['2captchaToken']
 
-async function getOpenAIAuth(opt) {
+async function getOpenAIAuth(opt = {}) {
     let {
         browser,
         page,
         timeoutMs = Config.chromeTimeoutMS,
+        forceNewPage = false
     } = opt
 
     if (!browser) {
-        let cgp = new ChatGPTPuppeteer()
-        browser = await cgp.getBrowser()
+        browser = await global.cgp.getBrowser()
     }
     const origBrowser = browser
     const origPage = page
@@ -21,7 +21,11 @@ async function getOpenAIAuth(opt) {
     try {
         const userAgent = await browser.userAgent()
         if (!page) {
-            page = (await browser.pages())[0] || (await browser.newPage())
+            if (forceNewPage) {
+                page = await browser.newPage()
+            } else {
+                page = (await browser.pages())[0] || (await browser.newPage())
+            }
             page.setDefaultTimeout(timeoutMs)
         }
         await page.goto('https://chat.openai.com/auth/login', {
@@ -54,7 +58,7 @@ async function getOpenAIAuth(opt) {
             await delay(500)
 
         const pageCookies = await page.cookies()
-        console.log({pageCookies})
+        // console.log({pageCookies})
         const cookies = pageCookies.reduce(
             (map, cookie) => ({...map, [cookie.name]: cookie}),
             {}
@@ -66,12 +70,15 @@ async function getOpenAIAuth(opt) {
             sessionToken: cookies['__Secure-next-auth.session-token']?.value,
             cookies
         }
-        console.info('chatgpt登录成功')
+        console.info('cf token获取成功')
 
         return authInfo
     } catch (err) {
-        throw err
+        console.error(err)
     } finally {
+        if (forceNewPage) {
+            await page.close()
+        }
         // await page.screenshot({
         //     type: 'png',
         //     path: './error.png'

@@ -3,6 +3,8 @@ const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const Config = require('../utils/config')
 const delay = require('delay')
 const {v4: uuidv4} = require('uuid')
+const {getOpenAIAuth} = require("./openai-auth");
+const {acquireLock, acquireLockAndPlus, acquireLockAndMinus} = require("../utils/lock");
 const chatUrl = 'https://chat.openai.com/chat'
 let puppeteer = {}
 
@@ -28,6 +30,7 @@ class Puppeteer {
       '--disable-web-security'
       // '--shm-size=1gb'
     ]
+    console.log({proxy: Config.proxy})
     if (Config.proxy) {
       args.push(`--proxy-server=${Config.proxy}`)
     }
@@ -151,24 +154,15 @@ class ChatGPTPuppeteer extends Puppeteer {
       this._page =
                 (await this.browser.pages())[0] || (await this.browser.newPage())
       await maximizePage(this._page)
+      await this._page.setCacheEnabled(false)
+      // await this._page.setRequestInterception(true);
       this._page.on('request', this._onRequest.bind(this))
       // this._page.on('response', this._onResponse.bind(this))
       // bypass cloudflare and login
-      // const url = this._page.url().replace(/\/$/, '')
-      // bypass annoying popup modals
-      await this._page.evaluateOnNewDocument(() => {
-        window.localStorage.setItem('oai/apps/hasSeenOnboarding/chat', 'true')
-        const chatGPTUpdateDates = ['2022-12-15', '2022-12-19', '2023-01-09', '2023-01-30', '2023-02-10']
-        chatGPTUpdateDates.forEach(date => {
-          window.localStorage.setItem(
-                `oai/apps/hasSeenReleaseAnnouncement/${date}`,
-                'true'
-          )
-        })
-      })
       await this._page.goto(chatUrl, {
         waitUntil: 'networkidle2'
       })
+
       let timeout = 30000
       try {
         while (timeout > 0 && (await this._page.title()).toLowerCase().indexOf('moment') > -1) {
@@ -199,36 +193,6 @@ class ChatGPTPuppeteer extends Puppeteer {
       this._page = null
 
       throw err
-    }
-
-    const url = this._page.url().replace(/\/$/, '')
-
-    if (url !== chatUrl) {
-      await this._page.goto(chatUrl, {
-        waitUntil: 'networkidle2'
-      })
-    }
-
-    // dismiss welcome modal (and other modals)
-    do {
-      const modalSelector = '[data-headlessui-state="open"]'
-
-      if (!(await this._page.$(modalSelector))) {
-        break
-      }
-
-      try {
-        await this._page.click(`${modalSelector} button:last-child`)
-      } catch (err) {
-        // "next" button not found in welcome modal
-        break
-      }
-
-      await delay(300)
-    } while (true)
-
-    if (!await this.getIsAuthenticated()) {
-      return false
     }
 
     if (this._minimize) {
@@ -264,37 +228,16 @@ class ChatGPTPuppeteer extends Puppeteer {
         body
       })
     }
+    // if (request.failure() && request.failure().errorText.includes('403')) {
+    //   this.setCfStatus(false)
+    //   request.abort();
+    // } else {
+    //   request.continue();
+    // }
   }
-
-  async handle403Error () {
-    console.log(`ChatGPT "${this._email}" session expired; refreshing...`)
-    try {
-      await maximizePage(this._page)
-      await this._page.reload({
-        waitUntil: 'networkidle2',
-        timeout: Config.chromeTimeoutMS // 2 minutes
-      })
-      if (this._minimize) {
-        await minimizePage(this._page)
-      }
-    } catch (err) {
-      console.error(
-              `ChatGPT "${this._email}" error refreshing session`,
-              err.toString()
-      )
-    }
+  setCfStatus(status) {
+    global.CFStatus = status
   }
-
-  async getIsAuthenticated () {
-    try {
-      const inputBox = await this._getInputBox()
-      return !!inputBox
-    } catch (err) {
-      // can happen when navigating during login
-      return false
-    }
-  }
-
   async sendRequest (
       url, method, body, newHeaders
   ) {
@@ -313,11 +256,6 @@ class ChatGPTPuppeteer extends Puppeteer {
       const error = new Error(result.error.message)
       error.statusCode = result.error.statusCode
       error.statusText = result.error.statusText
-
-      if (error.statusCode === 403) {
-        await this.handle403Error()
-      }
-
       throw error
     }
 
@@ -361,30 +299,53 @@ class ChatGPTPuppeteer extends Puppeteer {
       body.conversation_id = conversationId
     }
 
+    async function addPageBinding(page, name, callback) {
+      try {
+        await page.exposeFunction(name, callback);
+      } catch (error) {
+        console.debug(`Failed to add page binding with name ${name}: ${error.message}`);
+      }
+    }
+
+    let id = uuidv4().replaceAll("-", "")
     // console.log('>>> EVALUATE', url, this._accessToken, body)
-    await this._page.exposeFunction('backStreamToNode', (data) => {
+    await addPageBinding(this._page, `backStreamToNode${id}`, (data) => {
       onConversationResponse(data)
       console.log(data)
     });
-
-    const result = await this._page.evaluate(
-      browserPostEventStream,
-      url,
-      accessToken,
-      body,
-      timeoutMs
+    acquireLockAndPlus()
+    let result
+    result = await this._page.evaluate(
+        browserPostEventStream,
+        url,
+        accessToken,
+        body,
+        timeoutMs
     )
 
     console.log('<<< EVALUATE', result)
-
+    if (result?.error?.statusCode === 403) {
+      global.CFStatus = false
+      acquireLockAndMinus()
+      console.log("cf token expired, wait for refreshing")
+      while (!global.CFStatus) {
+        await delay(500)
+      }
+      result = await this._page.evaluate(
+          browserPostEventStream,
+          url,
+          accessToken,
+          body,
+          timeoutMs,
+          id
+      )
+    }
+    acquireLockAndMinus()
     if (result.error) {
+      console.error(result.error)
       const error = new Error(result.error.message)
       error.statusCode = result.error.statusCode
       error.statusText = result.error.statusText
-
-      if (error.statusCode === 403) {
-        await this.handle403Error()
-      }
 
       throw error
     }
@@ -393,6 +354,8 @@ class ChatGPTPuppeteer extends Puppeteer {
     if (onConversationResponse) {
       onConversationResponse(result.conversationResponse)
     }
+    // this._page._pageBindings.set(`backStreamToNode${id}`, function(){});
+    this._page._pageBindings.delete(`backStreamToNode${id}`)
 
     return {
       text: result.response,
@@ -476,7 +439,8 @@ async function browserPostEventStream (
   url,
   accessToken,
   body,
-  timeoutMs
+  timeoutMs,
+  id
 ) {
   // Workaround for https://github.com/esbuild-kit/tsx/issues/113
   globalThis.__name = () => undefined
@@ -526,7 +490,7 @@ async function browserPostEventStream (
     const responseP = new Promise(
       async (resolve, reject) => {
         function onMessage (data) {
-          window.backStreamToNode(data)
+          window[`backStreamToNode${id}`](data)
           if (data === '[DONE]') {
             return resolve({
               error: null,
@@ -587,7 +551,7 @@ async function browserPostEventStream (
           abortController.abort()
         }
       }
-      console.log({ pTimeout })
+      // console.log({ pTimeout })
       return await pTimeout(responseP, {
         milliseconds: timeoutMs,
         message: 'ChatGPT timed out waiting for response'

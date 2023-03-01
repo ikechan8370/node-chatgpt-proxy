@@ -5,12 +5,6 @@ const defaultConfig = {
     chromeTimeoutMS: 12000
 }
 let newJson = {}
-fs.readFile('config.json', 'utf8', (err, data) => {
-    if (err) {
-        console.error(err);
-        return;
-    }
-    newJson = JSON.parse(data);
-});
-
-module.exports = Object.assign({}, defaultConfig, newJson);
+let data = fs.readFileSync('config.json', 'utf8')
+newJson = Object.assign({}, defaultConfig, JSON.parse(data))
+module.exports = newJson

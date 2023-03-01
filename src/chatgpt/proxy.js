@@ -40,16 +40,13 @@ async function sendRequest(uri, method, data, headers, cfClearanceToken, userAge
 
 }
 async function sendRequestFull(uri, method, body, headers, onMessage) {
-
-    let cgp = new ChatGPTPuppeteer()
-    await cgp.init()
     if (uri === '/backend-api/conversation') {
         let message = body.messages[0].content.parts[0]
         let parentMessageId = body.parent_message_id
         let messageId = body.messages[0].id
         let conversationId = body.conversation_id
         let token = headers['authorization'].split(" ")[1]
-        await cgp.sendMessage(message, token, {
+        await global.cgp.sendMessage(message, token, {
             parentMessageId, messageId, conversationId,
             onConversationResponse: onMessage
         })
@@ -60,7 +57,7 @@ async function sendRequestFull(uri, method, body, headers, onMessage) {
             "accept": "application/json",
             'Authorization': headers['authorization']
         }
-        return await cgp.sendRequest(uri, method, body, newHeaders)
+        return await global.cgp.sendRequest(uri, method, body, newHeaders)
     }
 
 
