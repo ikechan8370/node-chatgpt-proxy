@@ -29,11 +29,14 @@ class Puppeteer {
       '--disable-accelerated-2d-canvas',
       '--disable-web-security',
         '--window-size=800,600'
+
       // '--shm-size=1gb'
     ]
-    console.log({proxy: Config.proxy})
     if (Config.proxy) {
       args.push(`--proxy-server=${Config.proxy}`)
+    }
+    if (process.env.DISPLAY) {
+      args.push(`--display=${process.env.DISPLAY}`)
     }
     this.browser = false
     this.lock = false
