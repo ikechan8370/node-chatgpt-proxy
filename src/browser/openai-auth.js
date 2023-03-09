@@ -32,7 +32,9 @@ async function getOpenAIAuth(opt = {}) {
             waitUntil: 'networkidle2'
         })
         console.log('chatgpt checkForChatGPTAtCapacity')
-
+        setInterval(async () => {
+            await page.mouse.click(275, 270);
+        }, 2000)
         await checkForChatGPTAtCapacity(page)
 
         // NOTE: this is where you may encounter a CAPTCHA
@@ -40,22 +42,7 @@ async function getOpenAIAuth(opt = {}) {
             console.log('RecaptchaPlugin key exists, try to solve recaptchas')
             await page.solveRecaptchas()
         }
-
-            let retry = 3
-            while (retry > 0) {
-                try {
-                    await waitForConditionOrAtCapacity(page, () =>
-                        page.waitForSelector('#__next .btn-primary', {timeout: timeoutMs / 3})
-                    )
-                } catch (e) {
-                    await checkForChatGPTAtCapacity(page)
-                }
-                retry--
-            }
-            await waitForConditionOrAtCapacity(page, () =>
-                page.waitForSelector('#__next .btn-primary', {timeout: timeoutMs / 3})
-            )
-            await delay(500)
+        await delay(500)
 
         const pageCookies = await page.cookies()
         // console.log({pageCookies})

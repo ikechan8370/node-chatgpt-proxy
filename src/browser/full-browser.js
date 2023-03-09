@@ -27,7 +27,8 @@ class Puppeteer {
       '--disable-default-apps',
       '--no-zygote',
       '--disable-accelerated-2d-canvas',
-      '--disable-web-security'
+      '--disable-web-security',
+        '--window-size=800,600'
       // '--shm-size=1gb'
     ]
     console.log({proxy: Config.proxy})
@@ -116,7 +117,7 @@ class ChatGPTPuppeteer extends Puppeteer {
       markdown = true,
       debug = false,
       isGoogleLogin = false,
-      minimize = true,
+      minimize = false,
       captchaToken,
       executablePath
     } = opts
