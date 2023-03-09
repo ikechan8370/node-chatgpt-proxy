@@ -309,6 +309,7 @@ class ChatGPTPuppeteer extends Puppeteer {
 
     let id = uuidv4().replaceAll("-", "")
     // console.log('>>> EVALUATE', url, this._accessToken, body)
+    console.log("function name: " + `backStreamToNode${id}`)
     await addPageBinding(this._page, `backStreamToNode${id}`, (data) => {
       onConversationResponse(data)
       console.log(data)
@@ -320,7 +321,8 @@ class ChatGPTPuppeteer extends Puppeteer {
         url,
         accessToken,
         body,
-        timeoutMs
+        timeoutMs,
+        id
     )
 
     console.log('<<< EVALUATE', result)
@@ -355,7 +357,7 @@ class ChatGPTPuppeteer extends Puppeteer {
       onConversationResponse(result.conversationResponse)
     }
     // this._page._pageBindings.set(`backStreamToNode${id}`, function(){});
-    this._page._pageBindings.delete(`backStreamToNode${id}`)
+    this._page._pageBindings?.delete(`backStreamToNode${id}`)
 
     return {
       text: result.response,
@@ -486,11 +488,11 @@ async function browserPostEventStream (
         messageId
       }
     }
-
+    let cbfName = 'backStreamToNode' + id
     const responseP = new Promise(
       async (resolve, reject) => {
         function onMessage (data) {
-          window[`backStreamToNode${id}`](data)
+          window[cbfName](data)
           if (data === '[DONE]') {
             return resolve({
               error: null,

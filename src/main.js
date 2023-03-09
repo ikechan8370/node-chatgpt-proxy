@@ -44,8 +44,8 @@ global.cgp.init().then(res => {
     })
 })
 setInterval(async () => {
-    console.log({lock, processingCount})
-    if (global.init && !global.CFStatus && global.processingCount === 0) {
+    // console.log({lock, processingCount})
+    if (global.init && !global.CFStatus) {
         global.init = false
         getOpenAIAuth({}).then(res => {
             console.log('need refresh, fetch cloudflare token')
