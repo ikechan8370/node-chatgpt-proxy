@@ -1,7 +1,7 @@
 FROM node:18-bullseye
 
 RUN apt-get update && \
-    apt-get install -y x11vnc xvfb fluxbox supervisor
+    apt-get install -y xvfb supervisor
 
 RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
     apt-get install -yf ./google-chrome-stable_current_amd64.deb && \
@@ -22,7 +22,7 @@ RUN echo $JSON_STR > config.json
 
 ADD conf/ /
 
-EXPOSE 3000 5900
+EXPOSE 3000
 
 ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
 
