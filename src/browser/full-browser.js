@@ -313,7 +313,7 @@ class ChatGPTPuppeteer extends Puppeteer {
     console.log("function name: " + `backStreamToNode${id}`)
     await addPageBinding(this._page, `backStreamToNode${id}`, (data) => {
       onConversationResponse(data)
-      console.log(data)
+      // console.log(data)
     });
     acquireLockAndPlus()
     let result
