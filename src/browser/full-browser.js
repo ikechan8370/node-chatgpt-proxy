@@ -256,13 +256,6 @@ class ChatGPTPuppeteer extends Puppeteer {
 
     console.log('<<< EVALUATE', result)
 
-    if (result.error) {
-      const error = new Error(result.error.message)
-      error.statusCode = result.error.statusCode
-      error.statusText = result.error.statusText
-      throw error
-    }
-
     return result
   }
 
@@ -313,7 +306,7 @@ class ChatGPTPuppeteer extends Puppeteer {
 
     let id = uuidv4().replaceAll("-", "")
     // console.log('>>> EVALUATE', url, this._accessToken, body)
-    console.log("function name: " + `backStreamToNode${id}`)
+    // console.log("function name: " + `backStreamToNode${id}`)
     await addPageBinding(this._page, `backStreamToNode${id}`, (data) => {
       onConversationResponse(data)
       // console.log(data)
@@ -328,8 +321,11 @@ class ChatGPTPuppeteer extends Puppeteer {
         timeoutMs,
         id
     )
-
-    console.log('<<< EVALUATE', result)
+    if (result.conversationResponse) {
+      console.log(result.response)
+    } else {
+      console.log('<<< EVALUATE', result)
+    }
     if (result?.error?.statusCode === 403) {
       global.CFStatus = false
       acquireLockAndMinus()
@@ -890,10 +886,22 @@ async function browserPostEventStream (
 async function browserNormalFetch (url, headers, body, method) {
   const res = await fetch(url, {
     method,
-    body: JSON.stringify(body),
+    body: method.toLowerCase() !== 'get' ? JSON.stringify(body) : undefined,
     headers: headers
   })
-  return res
+  let result = {
+    status: res.status,
+    statusText: res.statusText,
+    body: await res.json(),
+  }
+  if (res.status !== 200) {
+    result.error = {
+      message: result.body.detail.message,
+      statusCode: res.status,
+      statusText: res.statusText
+    }
+  }
+  return result
 }
 
 module.exports = {ChatGPTPuppeteer}
