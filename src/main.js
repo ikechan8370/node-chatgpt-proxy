@@ -10,6 +10,15 @@ const {next} = require("lodash/seq");
 const app = new Koa();
 app.use(bodyParser());
 app.use(async (ctx, next) => {
+    //通过try...catch来捕获异常
+    try {
+        await next();
+    } catch (err) {
+        //将捕获的异常信息返回给浏览器
+        ctx.body = err;
+    }
+});
+app.use(async (ctx, next) => {
 
     let body = ctx.request.body
     let uri = ctx.path
@@ -50,9 +59,15 @@ app.use(async ctx => {
             ctx.sse.sendEnd();
         }, timeout)
         // Send data using SSE
-        await sendRequestFull(uri, ctx.method, body, ctx.headers, data => {
+        let result = await sendRequestFull(uri, ctx.method, body, ctx.headers, data => {
             ctx.sse.send(data)
         });
+        if (result.error) {
+            ctx.response.set('Content-Type', 'application/json');
+            ctx.status = result.error.statusCode;
+            ctx.response.body = result
+            throw result.error
+        }
         console.log(uri + ' end')
         // End SSE stream
         ctx.sse.sendEnd();

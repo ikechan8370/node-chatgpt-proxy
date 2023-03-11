@@ -344,12 +344,15 @@ class ChatGPTPuppeteer extends Puppeteer {
     }
     acquireLockAndMinus()
     if (result.error) {
-      console.error(result.error)
-      const error = new Error(result.error.message)
-      error.statusCode = result.error.statusCode
-      error.statusText = result.error.statusText
-
-      throw error
+      return {
+        error: result.error
+      }
+      // console.error(result.error)
+      // const error = new Error(result.error.message)
+      // error.statusCode = result.error.statusCode
+      // error.statusText = result.error.statusText
+      //
+      // throw error
     }
 
     // TODO: support sending partial response events
@@ -477,11 +480,14 @@ async function browserPostEventStream (
     console.log('browserPostEventStream response', res)
 
     if (!res.ok) {
+      let result = await res.json()
       return {
         error: {
-          message: `ChatGPTAPI error ${res.status || res.statusText}`,
+          message: result?.detail?.message || result?.detail,
           statusCode: res.status,
-          statusText: res.statusText
+          statusText: res.statusText,
+          code: result?.detail?.code,
+          type: result?.detail?.type,
         },
         response: null,
         conversationId,

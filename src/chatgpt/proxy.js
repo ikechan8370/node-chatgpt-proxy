@@ -7,7 +7,7 @@ async function sendRequestFull(uri, method, body, headers, onMessage) {
     let conversationId = body.conversation_id
     let token = headers['authorization'].split(" ")[1]
     try {
-        await global.cgp.sendMessage(message, token, {
+        return await global.cgp.sendMessage(message, token, {
             parentMessageId, messageId, conversationId,
             onConversationResponse: onMessage
         })
@@ -15,7 +15,7 @@ async function sendRequestFull(uri, method, body, headers, onMessage) {
         console.log(err.message)
         if (err.message.indexOf('Execution context was destroyed') > -1) {
             await delay(1500)
-            await sendRequestFull(uri, method, body, headers, onMessage)
+            return await sendRequestFull(uri, method, body, headers, onMessage)
         }
     }
 
