@@ -285,7 +285,10 @@ class ChatGPTPuppeteer extends Puppeteer {
           content: {
             content_type: 'text',
             parts: [message]
-          }
+          },
+          // author: {
+          //   role: 'user'
+          // }
         }
       ],
       model: 'text-davinci-002-render-sha',
@@ -480,10 +483,17 @@ async function browserPostEventStream (
     console.log('browserPostEventStream response', res)
 
     if (!res.ok) {
-      let result = await res.json()
+      let bodyText = await res.text()
+      let result
+      try {
+        result = JSON.parse(bodyText)
+      } catch (err) {
+        result = bodyText
+      }
+
       return {
         error: {
-          message: result?.detail?.message || result?.detail,
+          message: result?.detail?.message || result?.detail || result,
           statusCode: res.status,
           statusText: res.statusText,
           code: result?.detail?.code,
