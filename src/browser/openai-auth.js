@@ -15,8 +15,6 @@ async function getOpenAIAuth(opt = {}) {
     if (!browser) {
         browser = await global.cgp.getBrowser()
     }
-    const origBrowser = browser
-    const origPage = page
 
     try {
         const userAgent = await browser.userAgent()
@@ -31,17 +29,10 @@ async function getOpenAIAuth(opt = {}) {
         await page.goto('https://chat.openai.com/auth/login', {
             waitUntil: 'networkidle2'
         })
-        console.log('chatgpt checkForChatGPTAtCapacity')
-        setInterval(async () => {
-            await page.mouse.click(275, 270);
-        }, 2000)
-        await checkForChatGPTAtCapacity(page)
-
-        // NOTE: this is where you may encounter a CAPTCHA
-        if (hasRecaptchaPlugin) {
-            console.log('RecaptchaPlugin key exists, try to solve recaptchas')
-            await page.solveRecaptchas()
-        }
+        // setInterval(async () => {
+        //     await page.mouse.click(275, 270);
+        // }, 2000)
+        await solveSimpleCaptchas(page)
         await delay(500)
 
         const pageCookies = await page.cookies()
@@ -83,113 +74,24 @@ async function getOpenAIAuth(opt = {}) {
     }
 }
 
-async function checkForChatGPTAtCapacity(page, opts = {}) {
-    const {
-        timeoutMs = Config.chromeTimeoutMS, // 2 minutes
-        pollingIntervalMs = 3000,
-        retries = 10
-    } = opts
-
-    // console.log('checkForChatGPTAtCapacity', page.url())
-    let isAtCapacity = false
-    let numTries = 0
-
-    do {
-        try {
-            await solveSimpleCaptchas(page)
-
-            const res = await page.$x("//div[contains(., 'ChatGPT is at capacity')]")
-            isAtCapacity = !!res?.length
-
-            if (isAtCapacity) {
-                break
-            }
-        } catch (err) {
-            // ignore errors likely due to navigation
-            ++numTries
-            break
-        }
-    } while (isAtCapacity)
-}
-
-async function waitForConditionOrAtCapacity(
-    page,
-    condition,
-    opts = {}
-) {
-    const {pollingIntervalMs = 500} = opts
-
-    return new Promise((resolve, reject) => {
-        let resolved = false
-
-        async function waitForCapacityText() {
-            if (resolved) {
-                return
-            }
-
-            try {
-                await checkForChatGPTAtCapacity(page)
-
-                if (!resolved) {
-                    setTimeout(waitForCapacityText, pollingIntervalMs)
-                }
-            } catch (err) {
-                if (!resolved) {
-                    resolved = true
-                    return reject(err)
-                }
-            }
-        }
-
-        condition()
-            .then(() => {
-                if (!resolved) {
-                    resolved = true
-                    resolve()
-                }
-            })
-            .catch((err) => {
-                if (!resolved) {
-                    resolved = true
-                    reject(err)
-                }
-            })
-
-        setTimeout(waitForCapacityText, pollingIntervalMs)
-    })
-}
-
 async function solveSimpleCaptchas(page) {
     try {
-        const verifyYouAreHuman = await page.$('text=Verify you are human')
-        if (verifyYouAreHuman) {
-            console.log('encounter cloudflare simple captcha "Verify you are human"')
-            await delay(2000)
-            await verifyYouAreHuman.click({
-                delay: random.int(5, 25)
-            })
-            await delay(1000)
-        }
-        const verifyYouAreHumanCN = await page.$('text=确认您是真人')
-        if (verifyYouAreHumanCN) {
-            console.log('encounter cloudflare simple captcha "确认您是真人"')
-            await delay(2000)
-            await verifyYouAreHumanCN.click({
-                delay: random.int(5, 25)
-            })
-            await delay(1000)
-        }
 
-        const cloudflareButton = await page.$('.hcaptcha-box')
-        if (cloudflareButton) {
-            await delay(2000)
-            await cloudflareButton.click({
-                delay: random.int(5, 25)
-            })
-            await delay(1000)
+        console.log("start to solve simple captchas")
+        const res1 = await page.$x("//div[contains(., 'ChatGPT is at capacity')]")
+        let success1 = !!res1?.length
+        const res2 = await page.$x("//div[contains(., 'Welcome to ChatGPT')]")
+        let success2 = !!res2?.length
+
+        while (!success1 && !success2) {
+            await page.mouse.click(275, 270);
+            await delay(500)
+            success1 = !!(await page.$x("//div[contains(., 'ChatGPT is at capacity')]"))?.length
+            success2 = !!(await page.$x("//div[contains(., 'Welcome to ChatGPT')]"))?.length
         }
+        console.log("solve simple captchas: done")
     } catch (err) {
-        // ignore errors
+        // console.warn(err)
     }
 }
 
