@@ -89,11 +89,20 @@ setInterval(async () => {
     // console.log({lock, processingCount})
     if (global.init && !global.CFStatus) {
         global.init = false
-        getOpenAIAuth({}).then(res => {
-            console.log('need refresh, fetch cloudflare token')
-            global.CFStatus = true
+        try {
+            getOpenAIAuth({}).then(res => {
+                console.log('need refresh, fetch cloudflare token')
+                global.CFStatus = true
+                global.init = true
+            }).catch(err => {
+                console.warn(err)
+                global.init = true
+            })
+        } catch (err) {
+            console.warn(err)
             global.init = true
-        })
+        }
+
     }
 }, 500)
 app.listen(3000);
