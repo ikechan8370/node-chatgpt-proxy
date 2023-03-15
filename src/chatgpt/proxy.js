@@ -5,10 +5,11 @@ async function sendRequestFull(uri, method, body, headers, onMessage) {
     let parentMessageId = body.parent_message_id
     let messageId = body.messages[0].id
     let conversationId = body.conversation_id
+    let model = body.model || 'text-davinci-002-render-sha'
     let token = headers['authorization'].split(" ")[1]
     try {
         return await global.cgp.sendMessage(message, token, {
-            parentMessageId, messageId, conversationId,
+            parentMessageId, messageId, conversationId, model,
             onConversationResponse: onMessage
         })
     } catch (err) {

@@ -271,6 +271,7 @@ class ChatGPTPuppeteer extends Puppeteer {
       action = 'next',
       // TODO
       timeoutMs,
+      model = 'text-davinci-002-render-sha',
       // onProgress,
       onConversationResponse
     } = opts
@@ -286,12 +287,12 @@ class ChatGPTPuppeteer extends Puppeteer {
             content_type: 'text',
             parts: [message]
           },
-          // author: {
-          //   role: 'user'
-          // }
+          author: {
+            role: 'user'
+          }
         }
       ],
-      model: 'text-davinci-002-render-sha',
+      model,
       parent_message_id: parentMessageId
     }
 
