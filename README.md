@@ -1,6 +1,8 @@
 ﻿# node-chatgpt-proxy
  
 ![Docker Pulls](https://img.shields.io/docker/pulls/geyinchi/node-chatgpt-proxy?logo=docker&style=plastic)
+![Docker Image Size (latest by date)](https://img.shields.io/docker/image-size/geyinchi/node-chatgpt-proxy?logo=docker)
+![GitHub top language](https://img.shields.io/github/languages/top/ikechan8370/node-chatgpt-proxy?logo=github)
 
 A simple reverse proxy for chat.openai.com which can bypass cloudflare protection.
 
