@@ -18,7 +18,8 @@ just run `docker run -d -p [PORT]:3000 --name node-chatgpt-proxy --shm-size=1gb 
 
 Check log: `docker exec -it node-chatgpt-proxy tail -100f /var/log/node-chatgpt-proxy.log`
 
-Check new version and update: `docker pull geyinchi/node-chatgpt-proxy && docker stop node-chatgpt-proxy && docker rm node-chatgpt-proxy && docker run -d -p [端口号]:3000 --name node-chatgpt-proxy --shm-size=1gb geyinchi/node-chatgpt-proxy`
+Check new version and update: `docker pull geyinchi/node-chatgpt-proxy && docker stop node-chatgpt-proxy && docker rm node-chatgpt-proxy && docker run -d -p [PORT
+]:3000 --name node-chatgpt-proxy --shm-size=1gb geyinchi/node-chatgpt-proxy`
 
 
 # 中文
