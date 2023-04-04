@@ -1,78 +1,56 @@
-const Koa = require('koa');
-const bodyParser = require('koa-bodyparser');
-const sse = require('koa-sse-stream');
+const express = require('express')
+const app = express()
+const port = 3000
+
 const {getOpenAIAuth} = require("./browser/openai-auth");
 const {sendRequestFull, sendRequestNormal} = require('./chatgpt/proxy')
-const delay = require("delay");
+// const delay = require("delay");
 const {ChatGPTPuppeteer} = require("./browser/full-browser");
-const {next} = require("lodash/seq");
+app.use(express.json())
 
-const app = new Koa();
-app.use(bodyParser());
-app.use(async (ctx, next) => {
-    //通过try...catch来捕获异常
-    try {
-        await next();
-    } catch (err) {
-        //将捕获的异常信息返回给浏览器
-        ctx.body = err;
-    }
-});
-app.use(async (ctx, next) => {
-
-    let body = ctx.request.body
-    let uri = ctx.path
-    let headers = JSON.parse(JSON.stringify(ctx.headers))
-    ctx.response.set('Cache-Control', 'no-cache');
-    ctx.status = 200;
-    console.log('request: ' + uri)
-    if (uri === '/backend-api/conversation') {
-        await next()
-    } else {
-        let newHeaders = {
-            'content-type': 'application/json',
-            'x-openai-assistant-app-id': '',
-            "accept": "application/json",
-            'authorization': headers['authorization']
+app.post('/backend-api/conversation', async function (req, res) {
+    res.set({
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive'
+    });
+    let success = false
+    sendRequestFull('/backend-api/conversation', req.method, req.body, JSON.parse(JSON.stringify(req.headers)), data => {
+        if (!success && data) {
+            success = true
+            res.set('Content-Type', 'text/event-stream');
+            res.write('Starting SSE stream...\n');
+            res.flushHeaders()
         }
-        let res = await sendRequestNormal(uri, ctx.method, body, newHeaders)
-        ctx.response.set('Content-Type', 'application/json');
-        ctx.status = res.status
-        ctx.response.body = res
-    }
-})
-app.use(sse());
-const timeout = 300000
-// response
-app.use(async ctx => {
-    let body = ctx.request.body
-    let uri = ctx.path
-    // let headers = JSON.parse(JSON.stringify(ctx.headers))
-    ctx.response.set('Cache-Control', 'no-cache');
-    ctx.status = 200;
-    // console.log(headers['authorization'])
-    if (uri === '/backend-api/conversation') {
-        // Set up SSE
-        ctx.response.set('Content-Type', 'text/event-stream');
-        ctx.body = 'Starting SSE stream...\n';
-        setTimeout(() => {
-            ctx.sse.sendEnd();
-        }, timeout)
-        // Send data using SSE
-        let result = await sendRequestFull(uri, ctx.method, body, ctx.headers, data => {
-            ctx.sse.send(data)
-        });
+        // console.log(data)
+        res.write(`data: ${data}\n\n`)
+    }).then(result => {
         if (result.error) {
-            ctx.response.set('Content-Type', 'application/json');
-            ctx.status = result.error.statusCode;
-            ctx.response.body = result
-            throw result.error
+            res.send(result)
+            res.status(result.error.statusCode).end();
         }
-        console.log(uri + ' end')
-        // End SSE stream
-        ctx.sse.sendEnd();
+    }).catch(err => {
+        console.log(err)
+        res.send(err)
+        res.status(err.statusCode || 500).end();
+    })
+})
+app.all("/*", async (req, res) => {
+    let body = req.body
+    let uri = req.path
+    let headers = JSON.parse(JSON.stringify(req.headers))
+    res.set('Cache-Control', 'no-cache');
+    console.log('request: ' + uri)
+    let newHeaders = {
+        'content-type': 'application/json',
+        'x-openai-assistant-app-id': '',
+        "accept": "application/json",
+        'authorization': headers['authorization']
     }
-});
+    let response = await sendRequestNormal(uri, req.method, body, newHeaders)
+    // res.set('Content-Type', 'application/json');
+    res.status(response.status)
+    res.send(response)
+})
 global.lock = 0;
 global.processingCount = 0;
 global.CFStatus = false
@@ -105,4 +83,6 @@ setInterval(async () => {
 
     }
 }, 500)
-app.listen(3000);
+app.listen(port, () => {
+    console.log(`node-chatgpt-proxy listening on port ${port}`)
+});

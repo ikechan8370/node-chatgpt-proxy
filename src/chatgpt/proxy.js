@@ -23,7 +23,16 @@ async function sendRequestFull(uri, method, body, headers, onMessage) {
 }
 
 async function sendRequestNormal(uri, method, body, headers) {
-    return await global.cgp.sendRequest(uri, method, body, headers)
+    try {
+        return await global.cgp.sendRequest(uri, method, body, headers)
+    } catch (err) {
+        console.log(err.message)
+        if (err.message.indexOf('Execution context was destroyed') > -1) {
+            await delay(1500)
+            return await sendRequestNormal(uri, method, body, headers)
+        }
+    }
+
 
 }
 
