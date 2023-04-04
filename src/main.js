@@ -21,7 +21,7 @@ app.post('/backend-api/conversation', async function (req, res) {
             res.write('Starting SSE stream...\n');
             res.flushHeaders()
         }
-        console.log(data)
+        // console.log(data)
         res.write(`data: ${data}\n\n`)
         if (data === '[DONE]') {
             res.end()
