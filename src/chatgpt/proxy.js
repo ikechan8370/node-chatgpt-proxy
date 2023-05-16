@@ -7,10 +7,11 @@ async function sendRequestFull(uri, method, body, headers, onMessage) {
     let conversationId = body.conversation_id
     let model = body.model || 'text-davinci-002-render-sha'
     let token = headers['authorization'].split(" ")[1]
+    let action = body.action
     try {
         return await global.cgp.sendMessage(message, token, {
             parentMessageId, messageId, conversationId, model,
-            onConversationResponse: onMessage
+            onConversationResponse: onMessage, action
         })
     } catch (err) {
         console.log(err.message)
