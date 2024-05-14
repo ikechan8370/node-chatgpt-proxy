@@ -1,9 +1,6 @@
 const delay = require('delay');
-const random = import('random');
-const {ChatGPTPuppeteer} = require('./full-browser');
 const Config = require('../utils/config')
-let hasRecaptchaPlugin = !!Config['2captchaToken']
-var robot= require("@hurdlegroup/robotjs");
+const robot= require("@hurdlegroup/robotjs");
 
 async function getOpenAIAuth(opt = {}) {
     let {
