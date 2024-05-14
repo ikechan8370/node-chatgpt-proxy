@@ -18,7 +18,7 @@ app.post('/backend-api/conversation', async function (req, res) {
     res.set('Content-Type', 'text/event-stream');
     res.flushHeaders()
     res.write('data: heartbeat\n\n');
-    setInterval(() => {
+    let heartbeat = setInterval(() => {
         res.write('data: heartbeat\n\n');
     }, 3000)
     sendRequestFull('/backend-api/conversation', req.method, req.body, JSON.parse(JSON.stringify(req.headers)), data => {
@@ -34,6 +34,8 @@ app.post('/backend-api/conversation', async function (req, res) {
             res.end()
         }
     }).then(result => {
+        clearInterval(heartbeat)
+        heartbeat = null
         if (result?.error) {
             res.send(result)
             res.status(result.error.statusCode).end();
