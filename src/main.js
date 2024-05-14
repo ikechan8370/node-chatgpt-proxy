@@ -14,6 +14,7 @@ app.post('/backend-api/conversation', async function (req, res) {
         'Connection': 'keep-alive'
     });
     let success = false
+    console.log("request body: " + req.body)
     sendRequestFull('/backend-api/conversation', req.method, req.body, JSON.parse(JSON.stringify(req.headers)), data => {
         if (!success && data) {
             success = true

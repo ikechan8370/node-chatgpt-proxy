@@ -72,15 +72,12 @@ async function solveSimpleCaptchas(page) {
 
         console.log("start to solve simple captchas")
         const res1 = await page.$x("//div[contains(., 'ChatGPT is at capacity')]")
-        console.log(res1)
         let success1 = (res1?.length || 0) > 0
-        const res2 = await page.$x("//div[contains(., 'Get started')]")
-        console.log(res2)
-        let success2 = (res2?.length || 0) > 0
-
+        let success2 = (await page.$x("//div[contains(., 'Get started')]"))?.length > 0 || (await page.$x("//div[contains(., 'Welcome')]"))?.length > 0
+        let retry = 20;
         let y = 410
         let step = 10
-        while (!success1 && !success2) {
+        while (!success1 && !success2 && retry >= 0) {
             await global.cgp.disconnectBrowser()
             console.log('click checkbox')
             robot.moveMouse(292, y)
@@ -90,7 +87,7 @@ async function solveSimpleCaptchas(page) {
             let browser = await global.cgp.browserInit()
             page = (await browser.pages())[0]
             success1 = (await page.$x("//div[contains(., 'ChatGPT is at capacity')]"))?.length > 0
-            success2 = (await page.$x("//div[contains(., 'Get started')]"))?.length > 0
+            success2 = (await page.$x("//div[contains(., 'Get started')]"))?.length > 0 || (await page.$x("//div[contains(., 'Welcome')]"))?.length > 0
             y += step
             if (y >= 500) {
                 step = -10
@@ -98,6 +95,7 @@ async function solveSimpleCaptchas(page) {
             if (y <= 400) {
                 step += 10
             }
+            retry--
         }
         console.log("solve simple captchas: done")
         await global.cgp.init()
