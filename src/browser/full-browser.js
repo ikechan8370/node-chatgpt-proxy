@@ -61,17 +61,12 @@ class Puppeteer {
     puppeteer = (await import('puppeteer-extra')).default
     const pluginStealth = StealthPlugin()
     puppeteer.use(pluginStealth)
-    if (Config['2captchaToken']) {
-      const pluginCaptcha = (await import('puppeteer-extra-plugin-recaptcha')).default
-      puppeteer.use(pluginCaptcha({
-        provider: {
-          id: '2captcha',
-          token: Config['2captchaToken'] // REPLACE THIS WITH YOUR OWN 2CAPTCHA API KEY ⚡
-        },
-        visualFeedback: true
-      }))
-    }
     return puppeteer
+  }
+
+  async disconnectBrowser () {
+    await this.browser.disconnect()
+    this.browser = null
   }
 
   /**
@@ -175,9 +170,6 @@ class ChatGPTPuppeteer extends Puppeteer {
       try {
         while (timeout > 0 && (await this._page.title()).toLowerCase().indexOf('moment') > -1) {
           // if meet captcha
-          if (Config['2captchaToken']) {
-            await this._page.solveRecaptchas()
-          }
           await delay(300)
           timeout = timeout - 300
         }
