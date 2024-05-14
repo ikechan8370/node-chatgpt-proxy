@@ -430,7 +430,6 @@ class ChatGPTPuppeteer extends Puppeteer {
     this.deviceId = cookie.value
     let pow = "gAAAAAB" + await this._page.evaluate(getPow, proof.proofofwork.seed, proof.proofofwork.difficulty)
     console.log({pow})
-
     result = await this._page.evaluate(
         browserPostEventStream,
         url,

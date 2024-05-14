@@ -14,13 +14,19 @@ app.post('/backend-api/conversation', async function (req, res) {
         'Connection': 'keep-alive'
     });
     let success = false
-    console.log("request body: " + req.body)
+    console.log("request body: " + JSON.stringify(req.body))
+    res.set('Content-Type', 'text/event-stream');
+    res.flushHeaders()
+    res.write('data: heartbeat\n\n');
+    setInterval(() => {
+        res.write('data: heartbeat\n\n');
+    }, 3000)
     sendRequestFull('/backend-api/conversation', req.method, req.body, JSON.parse(JSON.stringify(req.headers)), data => {
         if (!success && data) {
             success = true
-            res.set('Content-Type', 'text/event-stream');
-            res.write('Starting SSE stream...\n');
-            res.flushHeaders()
+            // res.set('Content-Type', 'text/event-stream');
+            // res.write('Starting SSE stream...\n');
+            // res.flushHeaders()
         }
         // console.log(data)
         res.write(`data: ${data}\n\n`)
