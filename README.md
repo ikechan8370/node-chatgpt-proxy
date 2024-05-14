@@ -14,7 +14,17 @@ Give me a star if this project helps or you are using any service supported by i
 
 ### with source code
 
-todo
+prepare your config.json file, for example: 
+
+```json
+{
+  "chromePath": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "proxy": "http://127.0.0.1:7890"
+}
+
+```
+
+and then use `npm run start` to start the server.
 
 ### with docker
 
@@ -25,6 +35,10 @@ Check log: `docker exec -it node-chatgpt-proxy tail -100f /var/log/node-chatgpt-
 Check new version and update: `docker pull geyinchi/node-chatgpt-proxy && docker stop node-chatgpt-proxy && docker rm node-chatgpt-proxy && docker run -d -p [PORT
 ]:3000 --name node-chatgpt-proxy --shm-size=1gb geyinchi/node-chatgpt-proxy`
 
+## about the API
+
+Currently, only http://[ip]:[port]/backend-api/conversation is supported, other APIs need to be tested by yourself.
+You can use the default 3.5 model without a token. After logging in, you can use the gpt-4o model.
 
 # 中文
 
@@ -37,7 +51,17 @@ Check new version and update: `docker pull geyinchi/node-chatgpt-proxy && docker
 ## 如何使用
 
 ### 源码部署
-TODO
+
+准备一个config.json文件，例如：
+
+```json
+{
+  "chromePath": "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+  "proxy": "http://127.0.0.8:7890"
+}
+```
+
+然后使用`npm run start`启动服务。
 
 ### 使用docker
 直接运行 `docker run -d -p [PORT]:3000 --name node-chatgpt-proxy --shm-size=1gb geyinchi/node-chatgpt-proxy`
@@ -48,3 +72,8 @@ TODO
 
 可以参考这篇博客：https://ikechan8370.com/archives/da-jian-chatgpt-guan-fang-fan-xiang-dai-li
 
+
+## 关于API
+
+目前支持http://[ip]:[port]/backend-api/conversation，其他API请自行测试。
+可以不传token，将使用未登录模式，默认的3.5模型。登陆后可使用gpt-4o.
