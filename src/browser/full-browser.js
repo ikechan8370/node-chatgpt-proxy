@@ -353,17 +353,17 @@ class ChatGPTPuppeteer extends Puppeteer {
     });
     acquireLockAndPlus()
     let result
-    const t = async () => await this._page.evaluate(() => {
-      return performance.now()
-    })
-    const actionMap = {
-      focusin: 0,
-      focusout: 1,
-      copy: 2,
-      paste: 3,
-      touchstart: 4,
-      touchend: 5
-    }
+    // const t = async () => await this._page.evaluate(() => {
+    //   return performance.now()
+    // })
+    // const actionMap = {
+    //   focusin: 0,
+    //   focusout: 1,
+    //   copy: 2,
+    //   paste: 3,
+    //   touchstart: 4,
+    //   touchend: 5
+    // }
     // 0,115606,1,115612,0,234031,1,235657,0,235794
     // let s = []
     //
@@ -393,6 +393,9 @@ class ChatGPTPuppeteer extends Puppeteer {
     let proofRsp = await this.sendRequest(`https://chatgpt.com/backend-${accessToken ? 'api' : 'anon'}/sentinel/chat-requirements`, "POST", {
       p: requirementToken
     }, newHeaders)
+    if (proofRsp.error) {
+        return proofRsp
+    }
     let proofRspJsonStr = proofRsp.body
     let proof = JSON.parse(proofRspJsonStr)
     let token = proof.token
@@ -679,6 +682,8 @@ async function browserPostEventStream(
       priority: 'u=1, i'
     }
     let wsUrl
+
+    let response_id = undefined
     if (accessToken) {
       headers.authorization = `Bearer ${accessToken}`
       const wsRsp = await fetch('https://chatgpt.com/backend-api/register-websocket', {
@@ -744,11 +749,11 @@ async function browserPostEventStream(
             let socket = new WebSocket(wsUrl)
             socket.addEventListener("message", async (event) => {
               let msg = JSON.parse(event.data)
-              while (!conversationId) {
+              while (!response_id) {
                 // sleep for 500ms
                 await new Promise(r => setTimeout(r, 500))
               }
-              if (msg.conversation_id === conversationId) {
+              if (msg.conversation_id === conversationId && msg.response_id === response_id) {
                 // todo heartbeat
                 let body = msg.body
                 let realMsg = atob(body)
@@ -779,18 +784,7 @@ async function browserPostEventStream(
               result = bodyText
             }
 
-            return {
-              error: {
-                message: result?.detail?.message || result?.detail || result,
-                statusCode: res.status,
-                statusText: res.statusText,
-                code: result?.detail?.code,
-                type: result?.detail?.type,
-              },
-              response: null,
-              conversationId,
-              messageId
-            }
+            reject(result?.detail?.message || result?.detail || result)
           }
 
           console.log(res.headers)
@@ -798,6 +792,7 @@ async function browserPostEventStream(
           if (res.headers.get('content-type').includes('application/json')) {
             const wsRes = await res.json()
             conversationId = wsRes.conversation_id
+            response_id = wsRes.response_id
           } else {
             const parser = createParser((event) => {
               if (event.type === 'event') {

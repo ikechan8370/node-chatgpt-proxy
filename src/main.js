@@ -34,13 +34,15 @@ app.post('/backend-api/conversation', async function (req, res) {
     // clearInterval(heartbeat)
     // heartbeat = null
     if (result?.error) {
+      res.status(result.error.statusCode || 400)
       res.send(result)
-      res.status(result.error.statusCode).end();
+      res.end();
     }
   }).catch(err => {
     console.log(err)
+    res.status(err.statusCode || 500)
     res.send(err)
-    res.status(err.statusCode || 500).end();
+    res.end();
   })
 })
 
