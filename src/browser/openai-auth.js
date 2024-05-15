@@ -1,6 +1,7 @@
 const delay = require('delay');
 const Config = require('../utils/config')
 const robot= require("@hurdlegroup/robotjs");
+const e = require("express");
 
 async function getOpenAIAuth(opt = {}) {
     let {
@@ -71,13 +72,15 @@ async function solveSimpleCaptchas(page) {
     try {
 
         console.log("start to solve simple captchas")
-        const res1 = await page.$x("//div[contains(., 'ChatGPT is at capacity')]")
-        let success1 = (res1?.length || 0) > 0
+        let success1 = (await page.title())?.includes('ChatGPT')
         let success2 = (await page.$x("//div[contains(., 'Get started')]"))?.length > 0 || (await page.$x("//div[contains(., 'Welcome')]"))?.length > 0
+        console.log({success1, success2})
         let retry = 20;
         let y = 410
         let step = 10
+        let met = false
         while (!success1 && !success2 && retry >= 0) {
+            met = true
             await global.cgp.disconnectBrowser()
             console.log('click checkbox')
             robot.moveMouse(292, y)
@@ -86,8 +89,9 @@ async function solveSimpleCaptchas(page) {
             await delay(3000)
             let browser = await global.cgp.browserInit()
             page = (await browser.pages())[0]
-            success1 = (await page.$x("//div[contains(., 'ChatGPT is at capacity')]"))?.length > 0
+            success1 = (await page.title())?.includes('ChatGPT')
             success2 = (await page.$x("//div[contains(., 'Get started')]"))?.length > 0 || (await page.$x("//div[contains(., 'Welcome')]"))?.length > 0
+            console.log({success1, success2})
             y += step
             if (y >= 500) {
                 step = -10
@@ -98,7 +102,9 @@ async function solveSimpleCaptchas(page) {
             retry--
         }
         console.log("solve simple captchas: done")
-        await global.cgp.init()
+        if (met) {
+            await global.cgp.init(false)
+        }
     } catch (err) {
         console.warn(err)
     }

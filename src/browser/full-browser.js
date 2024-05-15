@@ -102,7 +102,7 @@ class Puppeteer {
 
     /** 监听Chromium实例是否断开 */
     this.browser.on('disconnected', (e) => {
-      console.info('Chromium实例关闭或崩溃！')
+      // console.info('Chromium实例关闭或崩溃！')
       this.browser = false
     })
 
@@ -143,7 +143,7 @@ class ChatGPTPuppeteer extends Puppeteer {
     }
   }
 
-  async init() {
+  async init(first = true) {
     // if (this.inited) {
     //   return true
     // }
@@ -157,10 +157,12 @@ class ChatGPTPuppeteer extends Puppeteer {
       this._page =
           (await this.browser.pages())[0] || (await this.browser.newPage())
       await maximizePage(this._page)
-      await this._page.setCacheEnabled(false)
-      // await this._page.setRequestInterception(true);
-      this._page.on('request', this._onRequest.bind(this))
-      this._page.on('response', this._onResponse.bind(this))
+      if (first) {
+        await this._page.setCacheEnabled(false)
+        // await this._page.setRequestInterception(true);
+        // this._page.on('request', this._onRequest.bind(this))
+        // this._page.on('response', this._onResponse.bind(this))
+      }
       // bypass cloudflare and login
       await this._page.goto(chatUrl, {
         waitUntil: 'networkidle2'
@@ -212,64 +214,22 @@ class ChatGPTPuppeteer extends Puppeteer {
   }
 
   _onResponse = async (response) => {
-    const url = response.url()
-    // if (url.includes('sentinel/chat-requirements')) {
-    //   // handle requirements
-    //   try {
-    //     const body = await response.text()
-    //     const bodyJson = JSON.parse(body)
-    //     const token = bodyJson.token
-    //     this.token = token
-    //     this.proof = bodyJson.proofofwork
-    //     // console.log('token got: ' + token)
-    //   } catch (err) {
-    //
-    //   }
-    // }
+
   }
+
+  // we cannot modify cookie header through interception
+  // https://stackoverflow.com/questions/61745074/puppeteer-set-request-cookie-header
   _onRequest = (request) => {
-    const url = request.url()
-    // if (!isRelevantRequest(url)) {
-    //   return
-    // }
-
-    const method = request.method()
-    let body
-
-    if (method === 'POST') {
-      body = request.postData()
-
-      try {
-        body = JSON.parse(body)
-      } catch (_) {
-      }
-    }
-
-    if (url.includes('sentinel/chat-requirements')) {
-      let headers = request.headers()
-      // console.log(headers)
-      let deviceId = headers['oai-device-id']
-      try {
-        this.deviceId = deviceId
-        // this.proof = body.p
-        console.log('deviceId got: ' + deviceId)
-        // console.log('proof got: ' + body.p)
-      } catch (err) {
-      }
-    }
-    if (this._debug) {
-      console.log('\nrequest', {
-        url,
-        method,
-        headers: request.headers(),
-        body
-      })
-    }
-    // if (request.failure() && request.failure().errorText.includes('403')) {
-    //   this.setCfStatus(false)
-    //   request.abort();
+    // const headers = request.headers();
+    // if (headers['cookie-pre']) {
+    //   let newHeaders = Object.assign({}, headers, {
+    //     Cookie: headers['cookie-pre'],
+    //     'cookie-pre': undefined
+    //   })
+    //   request.continue({ headers: newHeaders });
     // } else {
-    //   request.continue();
+    //   // console.log(request.url())
+    //   request.continue()
     // }
   }
 
@@ -280,17 +240,13 @@ class ChatGPTPuppeteer extends Puppeteer {
   async sendRequest(
       url, method, body, newHeaders = {}, cookie = {}
   ) {
-    for (const k of Object.keys(cookie)) {
-      console.log(k)
-      await this._page.setCookie({
-        name: k,
-        value: cookie[k],
-        domain: 'chatgpt.com',
-        path: '/',
-        expires: -1,
-        httpOnly: true,
-        sameSite: "Lax",
-      })
+    if (Object.keys(cookie).length > 0) {
+      const cookies = await this._page.cookies();
+      let cookieString = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
+      for (const k of Object.keys(cookie)) {
+        cookieString += `${k}=${cookie[k]}; `
+      }
+      newHeaders['cookie-pre'] = cookieString
     }
     const result = await this._page.evaluate(
         browserNormalFetch,
@@ -305,10 +261,29 @@ class ChatGPTPuppeteer extends Puppeteer {
     return result
   }
 
+  async cleanNextToken () {
+    let key = '__Secure-next-auth.session-token'
+    await this._page.setCookie({
+        name: key,
+        value: '',
+        domain: 'chatgpt.com',
+        path: '/',
+        expires: -1,
+        httpOnly: true,
+    })
+  }
+
+  async getUa () {
+    return await this.browser.userAgent()
+  }
+  async getCookies() {
+    return await this._page.cookies()
+  }
+
   async sendMessage(
       message,
       accessToken,
-      authToken,
+      // authToken,
       opts = {}
   ) {
 
@@ -324,7 +299,7 @@ class ChatGPTPuppeteer extends Puppeteer {
       onConversationResponse
     } = opts
     let url = 'https://chatgpt.com/backend-api/conversation'
-    if (!authToken) {
+    if (!accessToken) {
       url = 'https://chatgpt.com/backend-anon/conversation'
     }
 
@@ -412,10 +387,10 @@ class ChatGPTPuppeteer extends Puppeteer {
     let newHeaders = {
       Authorization: `Bearer ${accessToken}`
     }
-    if (!authToken) {
+    if (!accessToken) {
       delete newHeaders.Authorization
     }
-    let proofRsp = await this.sendRequest(`https://chatgpt.com/backend-${authToken ? 'api' : 'anon'}/sentinel/chat-requirements`, "POST", {
+    let proofRsp = await this.sendRequest(`https://chatgpt.com/backend-${accessToken ? 'api' : 'anon'}/sentinel/chat-requirements`, "POST", {
       p: requirementToken
     }, newHeaders)
     let proofRspJsonStr = proofRsp.body
@@ -429,11 +404,11 @@ class ChatGPTPuppeteer extends Puppeteer {
     const cookie = getCookieByName(cookies, 'oai-did');
     this.deviceId = cookie.value
     let pow = "gAAAAAB" + await this._page.evaluate(getPow, proof.proofofwork.seed, proof.proofofwork.difficulty)
-    console.log({pow})
+    // console.log({pow})
     result = await this._page.evaluate(
         browserPostEventStream,
         url,
-        authToken,
+        // authToken,
         accessToken,
         body,
         timeoutMs,
@@ -457,7 +432,7 @@ class ChatGPTPuppeteer extends Puppeteer {
       }
 
       let pow = "gAAAAAB" + await this._page.evaluate(getPow, proof.proofofwork.seed, proof.proofofwork.difficulty)
-      console.log({proof})
+      // console.log({proof})
       result = await this._page.evaluate(
           browserPostEventStream,
           url,
@@ -611,7 +586,7 @@ async function getPow (seed, difficulty) {
     try {
       let n = null
           , i = getConfig();
-      console.log(i)
+      // console.log(i)
       for (let o = 0; o < maxAttempts; o++) {
         (!n || 0 >= n.timeRemaining()) && (n = await new Promise(e=>{
               (window.requestIdleCallback || function(e) {
@@ -633,13 +608,13 @@ async function getPow (seed, difficulty) {
             i[3] = o,
             i[9] = Math.round(performance.now() - r);
         let l = s(i);
-        console.log({l})
+        // console.log({l})
         let hasher = sha3_512.create()
         let hashed = hasher.update(e + l)
         hashed = hashed.hex()
-        console.log(t)
+        // console.log(t)
         // console.log(t.length)
-        console.log({hashed})
+        // console.log({hashed})
         if (hashed.substring(0, t.length) <= t)
           return l
       }
@@ -665,7 +640,7 @@ async function getPow (seed, difficulty) {
  */
 async function browserPostEventStream(
     url,
-    authToken,
+    // authToken,
     accessToken,
     body,
     timeoutMs,
@@ -697,7 +672,7 @@ async function browserPostEventStream(
       'openai-sentinel-proof-token': proof,
       // 'oai-echo-logs': oaiLogs,
       'oai-language': 'en-US',
-      Cookie: `__Secure-next-auth.session-token=${authToken};`,
+      // Cookie: `__Secure-next-auth.session-token=${authToken};`,
       dnt: '1',
       origin: 'https://chatgpt.com',
       referer: 'https://chatgpt.com/?model=gpt-4o',
@@ -1135,6 +1110,7 @@ async function browserPostEventStream(
 }
 
 async function browserNormalFetch(url, headers, body, method) {
+  console.log(headers)
   const res = await fetch(url, {
     method,
     body: method.toLowerCase() !== 'get' ? JSON.stringify(body) : undefined,
