@@ -174,18 +174,20 @@ app.post('/v1/chat/completions', async function (req, res) {
         if (data === '[DONE]') {
           resolve(current)
         } else {
-          const partial = JSON.parse(data)
-          if (!model && partial?.message?.metadata?.model_slug) {
-            model = partial?.message?.metadata?.model_slug
-          }
-          let role = partial?.message?.author?.role
-          if (role === 'assistant') {
-            let content = partial.message?.content?.parts[0]
-            if (content.length > current.length) {
-              current = partial.message?.content?.parts[0]
-              console.log({role, current})
+          try {
+            const partial = JSON.parse(data)
+            if (!model && partial?.message?.metadata?.model_slug) {
+              model = partial?.message?.metadata?.model_slug
             }
-          }
+            let role = partial?.message?.author?.role
+            if (role === 'assistant') {
+              let content = partial.message?.content?.parts[0]
+              if (content.length > current.length) {
+                current = partial.message?.content?.parts[0]
+                console.log({role, current})
+              }
+            }
+          } catch (e) {}
         }
       })
     })
