@@ -678,40 +678,25 @@ async function browserPostEventStream(
       referer: 'https://chatgpt.com/?model=gpt-4o',
       priority: 'u=1, i'
     }
+    let wsUrl
     if (accessToken) {
       headers.authorization = `Bearer ${accessToken}`
+      const wsRsp = await fetch('https://chatgpt.com/backend-api/register-websocket', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'oai-device-id': deviceId,
+          'oai-language': 'en-US',
+          'origin': 'https://chatgpt.com',
+          'referer': 'https://chatgpt.com/?model=gpt-4o',
+          'priority': 'u=1, i',
+          Authorization: `Bearer ${accessToken}`
+        }
+      })
+      const wsRspJson = await wsRsp.json()
+      wsUrl = wsRspJson['wss_url']
     }
-    const res = await fetch(url, {
-      method: 'POST',
-      body: JSON.stringify(body),
-      signal: abortController?.signal,
-      headers
-    })
 
-    console.log('browserPostEventStream response', res)
-
-    if (!res.ok) {
-      let bodyText = await res.text()
-      let result
-      try {
-        result = JSON.parse(bodyText)
-      } catch (err) {
-        result = bodyText
-      }
-
-      return {
-        error: {
-          message: result?.detail?.message || result?.detail || result,
-          statusCode: res.status,
-          statusText: res.statusText,
-          code: result?.detail?.code,
-          type: result?.detail?.type,
-        },
-        response: null,
-        conversationId,
-        messageId
-      }
-    }
     let cbfName = 'backStreamToNode' + id
     const responseP = new Promise(
         async (resolve, reject) => {
@@ -755,17 +740,16 @@ async function browserPostEventStream(
               reject(err)
             }
           }
-          console.log(res.headers)
-          console.log(res.headers.get('content-type'))
-          if (res.headers.get('content-type').includes('application/json')) {
-            let wsRes = await res.json()
-            let wsUrl = wsRes.wss_url
-            let conversation_id = wsRes.conversation_id
+          if (wsUrl) {
             let socket = new WebSocket(wsUrl)
-            socket.addEventListener("message", (event) => {
-              console.log(event.data)
+            socket.addEventListener("message", async (event) => {
               let msg = JSON.parse(event.data)
-              if (msg.conversation_id === conversation_id) {
+              while (!conversationId) {
+                // sleep for 500ms
+                await new Promise(r => setTimeout(r, 500))
+              }
+              if (msg.conversation_id === conversationId) {
+                // todo heartbeat
                 let body = msg.body
                 let realMsg = atob(body)
                 if (realMsg.trim().length > 0) {
@@ -776,6 +760,44 @@ async function browserPostEventStream(
                 }
               }
             });
+          }
+          const res = await fetch(url, {
+            method: 'POST',
+            body: JSON.stringify(body),
+            signal: abortController?.signal,
+            headers
+          })
+
+          console.log('browserPostEventStream response', res)
+
+          if (!res.ok) {
+            let bodyText = await res.text()
+            let result
+            try {
+              result = JSON.parse(bodyText)
+            } catch (err) {
+              result = bodyText
+            }
+
+            return {
+              error: {
+                message: result?.detail?.message || result?.detail || result,
+                statusCode: res.status,
+                statusText: res.statusText,
+                code: result?.detail?.code,
+                type: result?.detail?.type,
+              },
+              response: null,
+              conversationId,
+              messageId
+            }
+          }
+
+          console.log(res.headers)
+          console.log(res.headers.get('content-type'))
+          if (res.headers.get('content-type').includes('application/json')) {
+            const wsRes = await res.json()
+            conversationId = wsRes.conversation_id
           } else {
             const parser = createParser((event) => {
               if (event.type === 'event') {

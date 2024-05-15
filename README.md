@@ -38,7 +38,13 @@ Check new version and update: `docker pull geyinchi/node-chatgpt-proxy && docker
 ## about the API
 
 Currently, only http://[ip]:[port]/backend-api/conversation is supported, other APIs need to be tested by yourself.
+
 You can use the default 3.5 model without a token. After logging in, you can use the gpt-4o model.
+
+update: Now OpenAI format is supported: http://localhost:3000/v1/chat/completions , support stream
+
+API key can be accessToken or nextToken
+
 
 # 中文
 
@@ -76,4 +82,9 @@ You can use the default 3.5 model without a token. After logging in, you can use
 ## 关于API
 
 目前支持http://[ip]:[port]/backend-api/conversation，其他API请自行测试。
+
 可以不传token，将使用未登录模式，默认的3.5模型。登陆后可使用gpt-4o.
+
+更新：现在支持OpenAI格式：http://localhost:3000/v1/chat/completions ，支持流式(stream: true)
+
+api key可以填写accessToken 或 nextToken
