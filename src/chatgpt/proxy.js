@@ -3,14 +3,7 @@ const { fetch, ProxyAgent } = require("undici");
 // const { HttpsProxyAgent } = require("https-proxy-agent")
 const Config = require('../utils/config')
 
-async function sendRequestFull(uri, method, body, headers, onMessage) {
-    let message = body.messages[0].content.parts[0]
-    let parentMessageId = body.parent_message_id
-    let messageId = body.messages[0].id
-    let conversationId = body.conversation_id
-    let model = body.model || 'auto'
-    let token = headers['authorization'] ? headers['authorization'].split(" ")[1] : undefined
-    let action = body.action
+async function getAccessToken(token) {
     let accessToken = undefined
     if (token) {
         if (token.length > 2500) {
@@ -56,6 +49,19 @@ async function sendRequestFull(uri, method, body, headers, onMessage) {
             accessToken = token
         }
     }
+    return accessToken
+}
+
+async function sendRequestFull(uri, method, body, headers, onMessage) {
+    let message = body.messages[0].content.parts[0]
+    let parentMessageId = body.parent_message_id
+    let messageId = body.messages[0].id
+    let conversationId = body.conversation_id
+    let model = body.model || 'auto'
+    let token = headers['authorization'] ? headers['authorization'].split(" ")[1] : undefined
+    let action = body.action
+    let accessToken = await getAccessToken(token)
+
     try {
         let result = await global.cgp.sendMessage(message, accessToken, {
             parentMessageId, messageId, conversationId, model,
@@ -72,8 +78,13 @@ async function sendRequestFull(uri, method, body, headers, onMessage) {
 
 }
 
-async function sendRequestNormal(uri, method, body, headers, cookies = {}) {
+async function sendRequestNormal(uri, method, body = {}, headers = {}, cookies = {}) {
     try {
+        let token = headers['authorization'] ? headers['authorization'].split(" ")[1] : undefined
+        let accessToken = await getAccessToken(token)
+        if (accessToken) {
+            headers['Authorization'] = `Bearer ${accessToken}`
+        }
         return await global.cgp.sendRequest(uri, method, body, headers, cookies)
     } catch (err) {
         console.log(err.message)
@@ -86,4 +97,4 @@ async function sendRequestNormal(uri, method, body, headers, cookies = {}) {
 
 }
 
-module.exports = {sendRequestFull, sendRequestNormal}
+module.exports = {sendRequestFull, sendRequestNormal, getAccessToken}

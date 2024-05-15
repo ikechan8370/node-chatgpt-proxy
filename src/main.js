@@ -4,9 +4,11 @@ const port = 3000
 
 const crypto = require('crypto')
 const {getOpenAIAuth} = require("./browser/openai-auth");
-const {sendRequestFull, sendRequestNormal} = require('./chatgpt/proxy')
+const {sendRequestFull, sendRequestNormal, getAccessToken} = require('./chatgpt/proxy')
 // const delay = require("delay");
 const {ChatGPTPuppeteer} = require("./browser/full-browser");
+const Config = require("./utils/config");
+const {ProxyAgent, fetch} = require("undici");
 app.use(express.json())
 
 app.post('/backend-api/conversation', async function (req, res) {
@@ -214,6 +216,59 @@ app.post('/v1/chat/completions', async function (req, res) {
   }
 })
 
+app.get("/backend-api/synthesize", async (req, res) => {
+  const message_id = req.query.message_id
+  const conversation_id = req.query.conversation_id
+  const voice = req.query.voice || "cove"
+  const format = req.query.format || "mp3"
+  console.log({message_id, conversation_id, voice, format})
+  let token = req.headers['authorization'] ? req.headers['authorization'].split(" ")[1] : undefined
+  let cookies = await global.cgp.getCookies()
+  let cookie = ''
+  for (let c of cookies) {
+    cookie += `${c.name}=${c.value}; `
+  }
+  let accessToken = await getAccessToken(token)
+  let ua = await global.cgp.getUa()
+  let option = {
+    method: "GET",
+    headers: {
+      Cookie: cookie,
+      'User-Agent': ua,
+      Referer: 'https://chatgpt.com/',
+      "Sec-Ch-Ua":'"Chromium";v="124", "Google Chrome";v="124", ";Not A Brand";v="99"',
+      "Sec-Ch-Ua-Mobile":"?0",
+      "Sec-Ch-Ua-Platform":'"Windows"',
+      "Sec-Fetch-Dest":"document",
+      "Sec-Fetch-Mode":"navigate",
+      "Sec-Fetch-Site":"cross-site",
+      "Sec-Fetch-User":"?1",
+      "Upgrade-Insecure-Requests":"1",
+      // "Accept-Encoding":"gzip, deflate, br, zstd",
+      "Accept-Language":"en-US,en;q=0.9",
+      "Cache-Control":"max-age=0",
+      Authorization: `Bearer ${accessToken}`
+    }
+  }
+  let proxy = Config.proxy
+  if (proxy) {
+    const agent = new ProxyAgent(proxy)
+    option.dispatcher = agent
+  }
+  try {
+    let voiceRsp = await fetch(`https://chatgpt.com/backend-api/synthesize?message_id=${message_id}&conversation_id=${conversation_id}&voice=${voice}&format=${format}`, option)
+    if (voiceRsp.status !== 200) {
+      res.status(voiceRsp.status).send(await voiceRsp.text())
+      return
+    }
+    let voiceBuffer = await voiceRsp.arrayBuffer()
+    res.header('Content-Type', voiceRsp.headers.get('content-type'))
+    res.send(Buffer.from(voiceBuffer))
+  } catch (err) {
+    console.log(err)
+    res.status(500).send(err.toString())
+  }
+})
 app.all("/*", async (req, res) => {
   let body = req.body
   let uri = req.path

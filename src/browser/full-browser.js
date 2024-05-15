@@ -1164,7 +1164,7 @@ async function browserNormalFetch(url, headers, body, method) {
   let result = {
     status: res.status,
     statusText: res.statusText,
-    body: await res.json(),
+    body: await res.text(),
   }
   if (res.status !== 200) {
     result.error = {
