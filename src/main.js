@@ -18,6 +18,12 @@ app.post('/backend-api/conversation', async function (req, res) {
   });
   let success = false
   console.log("request body: " + JSON.stringify(req.body))
+  if (!req.body?.messages) {
+    res.status(400).send({
+      error: 'lack of messages'
+    })
+    return
+  }
   sendRequestFull('/backend-api/conversation', req.method, req.body, JSON.parse(JSON.stringify(req.headers)), data => {
     if (!success && data) {
       success = true
@@ -54,8 +60,14 @@ app.post('/v1/chat/completions', async function (req, res) {
   });
   let success = false
   console.log("request body: " + JSON.stringify(req.body))
-
+  if (!req.body?.messages) {
+    res.status(400).send({
+      error: 'lack of messages'
+    })
+    return
+  }
   const messages = req.body.messages
+  const userModel = req.body.model
   const prompt = JSON.stringify(messages)
   const messageId = crypto.randomUUID()
   const parentMessageId = crypto.randomUUID()
@@ -76,7 +88,7 @@ app.post('/v1/chat/completions', async function (req, res) {
       }
     ],
     "parent_message_id": parentMessageId,
-    "model": "auto",
+    "model": userModel,
     "timezone_offset_min": -480,
     "suggestions": [
       "把我当做五岁小朋友一样，向我解释超导体。",
