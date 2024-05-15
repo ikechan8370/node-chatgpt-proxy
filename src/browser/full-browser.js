@@ -705,9 +705,13 @@ async function browserPostEventStream(
     let cbfName = 'backStreamToNode' + id
     const responseP = new Promise(
         async (resolve, reject) => {
+          let finish = false
           function onMessage(data) {
             window[cbfName](data)
-            if (data === '[DONE]') {
+            try {
+              finish = JSON.parse(data).message?.status === 'finished_successfully'
+            } catch (e) {}
+            if (data === '[DONE]' && finish) {
               return resolve({
                 error: null,
                 response,
@@ -747,19 +751,24 @@ async function browserPostEventStream(
           }
           if (wsUrl) {
             let socket = new WebSocket(wsUrl)
+            let finish = false
             socket.addEventListener("message", async (event) => {
               let msg = JSON.parse(event.data)
               while (!response_id) {
                 // sleep for 500ms
                 await new Promise(r => setTimeout(r, 500))
               }
-              if (msg.conversation_id === conversationId && msg.response_id === response_id) {
+              if (msg.conversation_id === conversationId && msg?.response_id === response_id) {
                 // todo heartbeat
                 let body = msg.body
                 let realMsg = atob(body)
                 if (realMsg.trim().length > 0) {
-                  onMessage(realMsg.trim().replace('data: ', ''))
-                  if (realMsg.trim() === 'data: [DONE]') {
+                  let dataMsg = realMsg.trim().replace('data: ', '')
+                  try {
+                    finish = JSON.parse(dataMsg).message?.status === 'finished_successfully'
+                  } catch (e) {}
+                  onMessage(dataMsg)
+                  if (finish && realMsg.trim() === 'data: [DONE]') {
                     socket.close()
                   }
                 }
@@ -790,10 +799,12 @@ async function browserPostEventStream(
           console.log(res.headers)
           console.log(res.headers.get('content-type'))
           if (res.headers.get('content-type').includes('application/json')) {
+            console.log('use ws')
             const wsRes = await res.json()
             conversationId = wsRes.conversation_id
             response_id = wsRes.response_id
           } else {
+            console.log('use sse')
             const parser = createParser((event) => {
               if (event.type === 'event') {
                 onMessage(event.data)
