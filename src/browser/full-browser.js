@@ -755,17 +755,40 @@ async function browserPostEventStream(
               reject(err)
             }
           }
+          console.log(res.headers)
+          console.log(res.headers.get('content-type'))
+          if (res.headers.get('content-type').includes('application/json')) {
+            let wsRes = await res.json()
+            let wsUrl = wsRes.wss_url
+            let conversation_id = wsRes.conversation_id
+            let socket = new WebSocket(wsUrl)
+            socket.addEventListener("message", (event) => {
+              console.log(event.data)
+              let msg = JSON.parse(event.data)
+              if (msg.conversation_id === conversation_id) {
+                let body = msg.body
+                let realMsg = atob(body)
+                if (realMsg.trim().length > 0) {
+                  onMessage(realMsg.trim().replace('data: ', ''))
+                  if (realMsg.trim() === 'data: [DONE]') {
+                    socket.close()
+                  }
+                }
+              }
+            });
+          } else {
+            const parser = createParser((event) => {
+              if (event.type === 'event') {
+                onMessage(event.data)
+              }
+            })
 
-          const parser = createParser((event) => {
-            if (event.type === 'event') {
-              onMessage(event.data)
+            for await (const chunk of streamAsyncIterable(res.body)) {
+              const str = new TextDecoder().decode(chunk)
+              parser.feed(str)
             }
-          })
-
-          for await (const chunk of streamAsyncIterable(res.body)) {
-            const str = new TextDecoder().decode(chunk)
-            parser.feed(str)
           }
+
         }
     )
 
