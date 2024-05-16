@@ -118,6 +118,7 @@ app.post('/v1/chat/completions', async function (req, res) {
   let model = ''
   let current = ''
   let stream = req.body.stream || false
+  let done = false
   if (stream) {
     sendRequestFull('/backend-api/conversation', req.method, body, JSON.parse(JSON.stringify(req.headers)), data => {
       if (!success && data) {
@@ -126,10 +127,11 @@ app.post('/v1/chat/completions', async function (req, res) {
         res.write('Starting SSE stream...\n');
         res.flushHeaders()
       }
-
+      console.log(data)
       if (data === '[DONE]') {
-        res.write('data: [DONE]')
+        res.write('data: [DONE]\n\n')
         res.end()
+        done = true
       } else {
         const partial = JSON.parse(data)
         if (!model && partial?.message?.metadata?.model_slug) {
@@ -172,6 +174,9 @@ app.post('/v1/chat/completions', async function (req, res) {
       if (result?.error) {
         res.send(result)
         res.status(result.error.statusCode).end();
+      } else if (!done) {
+        res.write('data: [DONE]\n\n')
+        res.end()
       }
     }).catch(err => {
       console.log(err)
