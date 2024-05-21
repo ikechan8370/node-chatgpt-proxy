@@ -569,18 +569,30 @@ async function getPow (seed, difficulty) {
   }
   function getConfig() {
     var e, t, n, r, a, i, s, l;
-    return [(null === (e = navigator) || void 0 === e ? void 0 : e.hardwareConcurrency) + (null === (t = screen) || void 0 === t ? void 0 : t.width) + (null === (n = screen) || void 0 === n ? void 0 : n.height), "" + new Date, null === (r = performance) || void 0 === r || null === (r = r.memory) || void 0 === r ? void 0 : r.jsHeapSizeLimit, null == Math ? void 0 : Math.random(), null === (a = navigator) || void 0 === a ? void 0 : a.userAgent, o(Array.from(document.scripts).map(e=>null == e ? void 0 : e.src).filter(e=>e)), null !== (i = (null !== (s = Array.from(document.scripts || []).map(e=>{
-          var t;
-          return null == e || null === (t = e.src) || void 0 === t ? void 0 : t.match("dpl.*")
+    return [
+        // (null === (e = navigator) || void 0 === e ? void 0 : e.hardwareConcurrency) + (null === (t = screen) || void 0 === t ? void 0 : t.width) + (null === (n = screen) || void 0 === n ? void 0 : n.height),
+      (null === (e = navigator) || void 0 === e ? void 0 : 16) + (null === (t = screen) || void 0 === t ? void 0 : 2195) + (null === (n = screen) || void 0 === n ? void 0 : 1235),
+      "" + new Date,
+      // null === (r = performance) || void 0 === r || null === (r = r.memory) || void 0 === r ? void 0 : r.jsHeapSizeLimit,
+      4294705152,
+      null == Math ? void 0 : Math.random(),
+      null === (a = navigator) || void 0 === a ? void 0 : a.userAgent,
+      o(Array.from(document.scripts).map(e=>null == e ? void 0 : e.src).filter(e=>e)),
+      null !== (i = (null !== (s = Array.from(document.scripts || []).map(e=>{
+            var t;
+            return null == e || null === (t = e.src) || void 0 === t ? void 0 : t.match("dpl.*")
+          }
+      ).filter(e=>null == e ? void 0 : e.length)[0]) && void 0 !== s ? s : [])[0]) && void 0 !== i ? i : null,
+      navigator.language, null === (l = navigator.languages) || void 0 === l ? void 0 : l.join(","),
+      null == Math ? void 0 : Math.random(),
+      function() {
+        let e = o(Object.keys(Object.getPrototypeOf(navigator)));
+        try {
+          return "".concat(e, "−").concat(navigator[e].toString())
+        } catch {
+          return "".concat(e)
         }
-    ).filter(e=>null == e ? void 0 : e.length)[0]) && void 0 !== s ? s : [])[0]) && void 0 !== i ? i : null, navigator.language, null === (l = navigator.languages) || void 0 === l ? void 0 : l.join(","), null == Math ? void 0 : Math.random(), function() {
-      let e = o(Object.keys(Object.getPrototypeOf(navigator)));
-      try {
-        return "".concat(e, "−").concat(navigator[e].toString())
-      } catch {
-        return "".concat(e)
-      }
-    }(), o(Object.keys(document)), o(Object.keys(window))]
+      }(), o(Object.keys(document)), o(Object.keys(window))]
   }
   const maxAttempts = 50000
   async function _generateAnswer(e, t) {
@@ -632,8 +644,14 @@ async function getPow (seed, difficulty) {
     return (e = JSON.stringify(e),
         window.TextEncoder) ? btoa(String.fromCharCode(...new TextEncoder().encode(e))) : btoa(unescape(encodeURIComponent(e)))
   }
-
-  return await _generateAnswer(seed, difficulty)
+  // sometimes difficulty is too low, like 32 or 45, just retry 5 times
+  let retry = 5
+  let answer = await _generateAnswer(seed, difficulty)
+  while (retry >= 0 && answer.length <= "wQ8Lk5FbGpA2NcR9dShT6gYjU7VxZ4D".length + 1) {
+    answer = await _generateAnswer(seed, difficulty)
+    retry--
+  }
+  return answer
 }
 
 /**
