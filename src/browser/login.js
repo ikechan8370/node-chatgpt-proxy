@@ -80,8 +80,8 @@ async function loginByUsernameAndPassword(username, password, proxy = '') {
           if (maxVal >= threshold) {
             console.log(`Turnstile found at: x=${maxLoc.x}, y=${maxLoc.y}`);
             resolve({
-              x: maxLoc.x - 450,
-              y: maxLoc.y + 1
+              x: maxLoc.x - 158,
+              y: maxLoc.y + 108
             })
             return
           }
@@ -98,22 +98,24 @@ async function loginByUsernameAndPassword(username, password, proxy = '') {
       console.log('disconnect browser first to bypass turnstile check')
       console.log(passwordRes)
       await global.cgp.disconnectBrowser()
-      await delay(1000)
-      let click = 5
+      await delay(100)
+      let click = 20
       let interval = setInterval(() => {
         if (click >= 0) {
           robot.moveMouse(passwordRes.x, passwordRes.y)
+          robot.mouseClick()
+          robot.moveMouse(passwordRes.x, passwordRes.y + 75)
           robot.mouseClick()
         }
         click--
         if (click < 0) {
           clearInterval(interval)
         }
-      }, 3000)
+      }, 1000)
       robot.mouseClick()
       await delay(8000)
       console.log("we believe turnstile is bypassed")
-      clearInterval(interval)
+
       // captcha should be solved
       browser = await global.cgp.browserInit()
       await delay(2000)
@@ -121,6 +123,7 @@ async function loginByUsernameAndPassword(username, password, proxy = '') {
       page = pages.find(p => p.url().includes('auth0'))
       console.log(page.url())
       let passwordInput = await page.waitForXPath("//input[@name='password']")
+      clearInterval(interval)
       await passwordInput.focus()
       await passwordInput.type(password)
       success = true
