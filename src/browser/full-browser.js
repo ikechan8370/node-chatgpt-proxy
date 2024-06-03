@@ -1,12 +1,10 @@
 const lodash = require('lodash');
-const crypto = require('crypto')
 const { sha3_512 } = require('js-sha3');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const Config = require('../utils/config')
 const delay = require('delay')
 const {v4: uuidv4} = require('uuid')
-const {getOpenAIAuth} = require("./openai-auth");
-const {acquireLock, acquireLockAndPlus, acquireLockAndMinus} = require("../utils/lock");
+const {acquireLockAndPlus, acquireLockAndMinus} = require("../utils/lock");
 const {resolve} = require("path");
 const {readFileSync} = require("fs");
 const chatUrl = 'https://chatgpt.com/'

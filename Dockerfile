@@ -1,7 +1,7 @@
 FROM node:18-bullseye-slim
 
 RUN apt-get update && \
-    apt-get install -y xvfb supervisor wget
+    apt-get install -y xvfb supervisor wget vim build-essential cmake git
 
 RUN wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && \
     apt-get install -yf ./google-chrome-stable_current_amd64.deb && \
