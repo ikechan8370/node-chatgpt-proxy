@@ -4,8 +4,9 @@ const { createCanvas, Image } = require('canvas');
 const fs = require('fs');
 const key = '__Secure-next-auth.session-token'
 const robot= require("@hurdlegroup/robotjs");
+const useProxy = require('@lem0-packages/puppeteer-page-proxy');
 
-async function loginByUsernameAndPassword(username, password) {
+async function loginByUsernameAndPassword(username, password, proxy = '') {
   const url = "https://chatgpt.com/auth/login"
   let turnstile = false
   /**
@@ -14,6 +15,9 @@ async function loginByUsernameAndPassword(username, password) {
    */
   let browser = await global.cgp.getBrowser()
   let page = await browser.newPage()
+  if (proxy) {
+    await useProxy(page, proxy)
+  }
   await page.deleteCookie({
     name: key,
     domain: '.chatgpt.com'
@@ -52,6 +56,7 @@ async function loginByUsernameAndPassword(username, password) {
     let turnstilePromise = new Promise(async (resolve, reject) => {
       let retry = 10
       while (retry >= 0) {
+        await delay(1000)
         let screenshot = await page.screenshot()
         const screenshotPath = './screenshot.png';
         fs.writeFileSync(screenshotPath, screenshot);
@@ -71,7 +76,6 @@ async function loginByUsernameAndPassword(username, password) {
           return
         }
         retry--
-        await delay(1000)
       }
       reject(new Error('Turnstile not found'))
     })

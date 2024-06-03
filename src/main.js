@@ -296,6 +296,7 @@ app.get("/backend-api/synthesize", async (req, res) => {
 app.get('/login', async (req, res) => {
   const username = req.query.username
   const password = req.query.password
+  const proxy = req.query.proxy
   console.log('login request: ' + username)
   if (!username || !password) {
     res.status(400).send({
@@ -303,7 +304,7 @@ app.get('/login', async (req, res) => {
     })
     return
   }
-  await loginByUsernameAndPassword(username, password).then(async token => {
+  await loginByUsernameAndPassword(username, password, proxy).then(async token => {
     if (token) {
       try {
         let {accessToken, expires} = await getAccessToken(token)

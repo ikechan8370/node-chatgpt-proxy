@@ -11,6 +11,7 @@
   "license": "ISC",
   "dependencies": {
     "@hurdlegroup/robotjs": "^0.11.7",
+    "@lem0-packages/puppeteer-page-proxy": "^1.4.1",
     "canvas": "^2.11.2",
     "delay": "^5.0.0",
     "eventsource-parser": "^0.1.0",
@@ -19,14 +20,14 @@
     "jpeg-js": "^0.4.4",
     "js-sha3": "^0.9.3",
     "lodash": "^4.17.21",
+    "opencv4nodejs": "^5.6.0",
     "puppeteer": "^19.7.2",
     "puppeteer-extra": "^3.3.4",
     "puppeteer-extra-plugin-recaptcha": "^3.6.6",
     "puppeteer-extra-plugin-stealth": "^2.11.1",
     "random": "^4.1.0",
     "undici": "^5.20.0",
-    "uuid": "^9.0.0",
-    "opencv4nodejs": "^5.6.0"
+    "uuid": "^9.0.0"
   },
   "opencv4nodejs": {
     "disableAutoBuild": 1,
