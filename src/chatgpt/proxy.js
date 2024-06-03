@@ -5,6 +5,7 @@ const Config = require('../utils/config')
 
 async function getAccessToken(token) {
     let accessToken = undefined
+    let expires = undefined
     if (token) {
         if (token.length > 2500) {
             // next token
@@ -44,12 +45,16 @@ async function getAccessToken(token) {
             let session = await sessionRsp.json()
             console.log(session)
             accessToken = session.accessToken
+            expires = session.expires
         } else {
             // access token
             accessToken = token
         }
     }
-    return accessToken
+    return {
+        accessToken,
+        expires
+    }
 }
 
 async function sendRequestFull(uri, method, body, headers, onMessage) {
@@ -60,7 +65,7 @@ async function sendRequestFull(uri, method, body, headers, onMessage) {
     let model = body.model || 'auto'
     let token = headers['authorization'] ? headers['authorization'].split(" ")[1] : undefined
     let action = body.action
-    let accessToken = await getAccessToken(token)
+    let {accessToken} = await getAccessToken(token)
 
     try {
         let result = await global.cgp.sendMessage(message, accessToken, {
@@ -81,7 +86,7 @@ async function sendRequestFull(uri, method, body, headers, onMessage) {
 async function sendRequestNormal(uri, method, body = {}, headers = {}, cookies = {}) {
     try {
         let token = headers['authorization'] ? headers['authorization'].split(" ")[1] : undefined
-        let accessToken = await getAccessToken(token)
+        let {accessToken} = await getAccessToken(token)
         if (accessToken) {
             headers['Authorization'] = `Bearer ${accessToken}`
         }

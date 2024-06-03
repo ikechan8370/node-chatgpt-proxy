@@ -9,6 +9,7 @@ const {sendRequestFull, sendRequestNormal, getAccessToken} = require('./chatgpt/
 const {ChatGPTPuppeteer} = require("./browser/full-browser");
 const Config = require("./utils/config");
 const {ProxyAgent, fetch} = require("undici");
+const {loginByUsernameAndPassword} = require("./browser/login");
 app.use(express.json())
 
 app.post('/backend-api/conversation', async function (req, res) {
@@ -204,7 +205,8 @@ app.post('/v1/chat/completions', async function (req, res) {
                 console.log({role, current})
               }
             }
-          } catch (e) {}
+          } catch (e) {
+          }
         }
       })
     })
@@ -249,7 +251,7 @@ app.get("/backend-api/synthesize", async (req, res) => {
   for (let c of cookies) {
     cookie += `${c.name}=${c.value}; `
   }
-  let accessToken = await getAccessToken(token)
+  let {accessToken} = await getAccessToken(token)
   let ua = await global.cgp.getUa()
   let option = {
     method: "GET",
@@ -257,17 +259,17 @@ app.get("/backend-api/synthesize", async (req, res) => {
       Cookie: cookie,
       'User-Agent': ua,
       Referer: 'https://chatgpt.com/',
-      "Sec-Ch-Ua":'"Chromium";v="124", "Google Chrome";v="124", ";Not A Brand";v="99"',
-      "Sec-Ch-Ua-Mobile":"?0",
-      "Sec-Ch-Ua-Platform":'"Windows"',
-      "Sec-Fetch-Dest":"document",
-      "Sec-Fetch-Mode":"navigate",
-      "Sec-Fetch-Site":"cross-site",
-      "Sec-Fetch-User":"?1",
-      "Upgrade-Insecure-Requests":"1",
+      "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", ";Not A Brand";v="99"',
+      "Sec-Ch-Ua-Mobile": "?0",
+      "Sec-Ch-Ua-Platform": '"Windows"',
+      "Sec-Fetch-Dest": "document",
+      "Sec-Fetch-Mode": "navigate",
+      "Sec-Fetch-Site": "cross-site",
+      "Sec-Fetch-User": "?1",
+      "Upgrade-Insecure-Requests": "1",
       // "Accept-Encoding":"gzip, deflate, br, zstd",
-      "Accept-Language":"en-US,en;q=0.9",
-      "Cache-Control":"max-age=0",
+      "Accept-Language": "en-US,en;q=0.9",
+      "Cache-Control": "max-age=0",
       Authorization: `Bearer ${accessToken}`
     }
   }
@@ -290,6 +292,49 @@ app.get("/backend-api/synthesize", async (req, res) => {
     res.status(500).send(err.toString())
   }
 })
+
+app.get('/login', async (req, res) => {
+  const username = req.query.username
+  const password = req.query.password
+  console.log('login request: ' + username)
+  if (!username || !password) {
+    res.status(400).send({
+      error: 'username or password is empty'
+    })
+    return
+  }
+  await loginByUsernameAndPassword(username, password).then(async token => {
+    if (token) {
+      try {
+        let {accessToken, expires} = await getAccessToken(token)
+        res.send({
+          nextToken: token,
+          username,
+          accessToken,
+          expires
+        })
+      } catch (err) {
+        console.error(err)
+        res.send({
+          nextToken: token,
+          username,
+          accessToken: null,
+          expires: -1
+        })
+      }
+    } else {
+      res.status(500).send({
+        error: 'login failed'
+      })
+    }
+  }).catch(err => {
+    console.log(err)
+    res.status(500).send({
+      error: err.message || 'login failed'
+    })
+  })
+})
+
 app.all("/*", async (req, res) => {
   let body = req.body
   let uri = req.path
@@ -304,9 +349,20 @@ app.all("/*", async (req, res) => {
   }
   let response = await sendRequestNormal(uri, req.method, body, newHeaders)
   // res.set('Content-Type', 'application/json');
-  res.status(response.status)
-  res.send(response)
+  res.status(response?.status || 500)
+  if (response?.headers) {
+    Object.keys(response.headers).forEach(key => {
+      if (key === 'content-encoding') {
+        // no compression
+        return
+      }
+      res.set(key, response.headers[key])
+    })
+  }
+  res.send(response?.body || response)
 })
+
+
 global.lock = 0;
 global.processingCount = 0;
 global.CFStatus = false

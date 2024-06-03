@@ -11,6 +11,7 @@
   "license": "ISC",
   "dependencies": {
     "@hurdlegroup/robotjs": "^0.11.7",
+    "canvas": "^2.11.2",
     "delay": "^5.0.0",
     "eventsource-parser": "^0.1.0",
     "express": "^4.18.2",
@@ -24,6 +25,13 @@
     "puppeteer-extra-plugin-stealth": "^2.11.1",
     "random": "^4.1.0",
     "undici": "^5.20.0",
-    "uuid": "^9.0.0"
+    "uuid": "^9.0.0",
+    "opencv4nodejs": "^5.6.0"
+  },
+  "opencv4nodejs": {
+    "disableAutoBuild": 1,
+    "opencvIncludeDir": "C:\\tools\\opencv\\build\\include",
+    "opencvLibDir": "C:\\tools\\opencv\\build\\x64\\vc16\\lib",
+    "opencvBinDir": "C:\\tools\\opencv\\build\\x64\\vc16\\bin"
   }
 }

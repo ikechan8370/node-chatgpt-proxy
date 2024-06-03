@@ -42,7 +42,7 @@ class Puppeteer {
     if (process.env.DISPLAY) {
       args.push(`--display=${process.env.DISPLAY}`)
     }
-    this.browser = false
+    this.browser = null
     this.lock = false
     this.config = {
       headless: false,
@@ -163,7 +163,10 @@ class ChatGPTPuppeteer extends Puppeteer {
         // this._page.on('request', this._onRequest.bind(this))
         // this._page.on('response', this._onResponse.bind(this))
       }
-      // bypass cloudflare and login
+      await this._page.deleteCookie({
+        name: '__Secure-next-auth.session-token',
+        domain: '.chatgpt.com'
+      })
       await this._page.goto(chatUrl, {
         waitUntil: 'networkidle2'
       })
@@ -576,7 +579,9 @@ async function getPow (seed, difficulty) {
       // null === (r = performance) || void 0 === r || null === (r = r.memory) || void 0 === r ? void 0 : r.jsHeapSizeLimit,
       4294705152,
       null == Math ? void 0 : Math.random(),
-      null === (a = navigator) || void 0 === a ? void 0 : a.userAgent,
+      // use windows UA instead to keep the difficulty value large enough
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.0.0",
+      // null === (a = navigator) || void 0 === a ? void 0 : a.userAgent,
       o(Array.from(document.scripts).map(e=>null == e ? void 0 : e.src).filter(e=>e)),
       null !== (i = (null !== (s = Array.from(document.scripts || []).map(e=>{
             var t;
@@ -601,7 +606,7 @@ async function getPow (seed, difficulty) {
     try {
       let n = null
           , i = getConfig();
-      // console.log(i)
+      console.log(i)
       for (let o = 0; o < maxAttempts; o++) {
         (!n || 0 >= n.timeRemaining()) && (n = await new Promise(e=>{
               (window.requestIdleCallback || function(e) {
@@ -1185,19 +1190,23 @@ async function browserNormalFetch(url, headers, body, method) {
     body: method.toLowerCase() !== 'get' ? JSON.stringify(body) : undefined,
     headers: headers
   })
+  let responseHeaders = {}
+  res.headers.forEach((value, name) => {
+    responseHeaders[name] = value
+  });
   let result = {
     status: res.status,
     statusText: res.statusText,
-    body: await res.json(),
+    body: await res.text(),
+    headers: responseHeaders
   }
+  console.log(res.headers)
   if (res.status !== 200) {
     result.error = {
-      message: result.body.detail.message,
+      message: result.body,
       statusCode: res.status,
       statusText: res.statusText
     }
-  } else {
-    result.body = JSON.stringify(result.body)
   }
   return result
 }

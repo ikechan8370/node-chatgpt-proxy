@@ -70,13 +70,12 @@ async function solveSimpleCaptchas(page) {
     //     document.body.appendChild(marker);
     // }, x, y);
     try {
-
         console.log("start to solve simple captchas")
         let success1 = (await page.title())?.includes('ChatGPT')
         let success2 = (await page.$x("//div[contains(., 'Get started')]"))?.length > 0 || (await page.$x("//div[contains(., 'Welcome')]"))?.length > 0
         console.log({success1, success2})
         let retry = 20;
-        let y = 410
+        let y = 450
         let step = 10
         let met = false
         while (!success1 && !success2 && retry >= 0) {
