@@ -66,24 +66,26 @@ async function loginByUsernameAndPassword(username, password, proxy = '') {
       let retry = 10
       while (retry >= 0) {
         await delay(1000)
-        let screenshot = await page.screenshot()
-        const screenshotPath = './screenshot.png';
-        fs.writeFileSync(screenshotPath, screenshot);
-        const screenshotImage = cv.imread(screenshotPath)
-        const cfLogoImage = cv.imread('cloudflare.png');
-        const matched = screenshotImage.matchTemplate(cfLogoImage, cv.TM_CCOEFF_NORMED);
-        const minMax = matched.minMaxLoc();
-        const maxVal = minMax.maxVal;
-        const maxLoc = minMax.maxLoc;
-        const threshold = 0.8;
-        if (maxVal >= threshold) {
-          console.log(`Turnstile found at: x=${maxLoc.x}, y=${maxLoc.y}`);
-          resolve({
-            x: maxLoc.x - 450,
-            y: maxLoc.y + 1
-          })
-          return
-        }
+        try {
+          let screenshot = await page.screenshot()
+          const screenshotPath = './screenshot.png';
+          fs.writeFileSync(screenshotPath, screenshot);
+          const screenshotImage = cv.imread(screenshotPath)
+          const cfLogoImage = cv.imread('cloudflare.png');
+          const matched = screenshotImage.matchTemplate(cfLogoImage, cv.TM_CCOEFF_NORMED);
+          const minMax = matched.minMaxLoc();
+          const maxVal = minMax.maxVal;
+          const maxLoc = minMax.maxLoc;
+          const threshold = 0.8;
+          if (maxVal >= threshold) {
+            console.log(`Turnstile found at: x=${maxLoc.x}, y=${maxLoc.y}`);
+            resolve({
+              x: maxLoc.x - 450,
+              y: maxLoc.y + 1
+            })
+            return
+          }
+        } catch (err) {}
         retry--
       }
       reject(new Error('Turnstile not found'))
