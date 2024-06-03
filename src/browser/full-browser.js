@@ -7,6 +7,7 @@ const {v4: uuidv4} = require('uuid')
 const {acquireLockAndPlus, acquireLockAndMinus} = require("../utils/lock");
 const {resolve} = require("path");
 const {readFileSync} = require("fs");
+const {RequestInterceptionManager} = require("puppeteer-intercept-and-modify-requests");
 const chatUrl = 'https://chatgpt.com/'
 let puppeteer = {}
 
@@ -279,6 +280,66 @@ class ChatGPTPuppeteer extends Puppeteer {
   }
   async getCookies() {
     return await this._page.cookies()
+  }
+
+  async getGetTokenHeaders() {
+    let page = await this.browser.newPage()
+    let headers
+    const {RequestInterceptionManager} = require('puppeteer-intercept-and-modify-requests')
+    const client = await page.target().createCDPSession()
+    await client.send('Network.enable')
+    await client.send('Page.enable');
+    const interceptManager = new RequestInterceptionManager(client)
+    await interceptManager.intercept(
+        {
+          urlPattern: `*`,
+          // specify how you want to modify the response (may be async):
+          modifyRequest: ({event}) => {
+            // console.log(event)
+            // console.log(event.request.url)
+            if (event.request.url.endsWith('/api/auth/session')) {
+              console.log('intercept')
+              headers = event.request.headers
+            }
+          },
+        }
+    )
+    await page.goto('https://chatgpt.com/api/auth/session', {
+      waitUntil: 'networkidle0'
+    })
+    await page.close()
+    return headers
+  }
+
+  async getToken(nextToken) {
+    // todo mutex lock
+    let page = await this.browser.newPage()
+    try {
+      // await page.setCacheEnabled(false)
+      await page.setCookie({
+        name: '__Secure-next-auth.session-token',
+        value: nextToken,
+        domain: '.chatgpt.com',
+        secure: true
+      })
+      await page.goto('https://chatgpt.com/api/auth/session', {
+        waitUntil: 'networkidle0'
+      })
+      let session = await page.evaluate(() => {
+        return fetch("https://chatgpt.com/api/auth/session", {
+          method: 'GET'
+        }).then(res => res.json())
+      })
+      return session
+    } catch (e) {
+      console.error(e)
+    } finally {
+      await page.deleteCookie({
+        name: '__Secure-next-auth.session-token',
+        domain: '.chatgpt.com'
+      })
+      await page.close()
+    }
   }
 
   async sendMessage(

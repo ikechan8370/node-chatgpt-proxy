@@ -2,7 +2,7 @@ const delay = require("delay");
 const { fetch, ProxyAgent } = require("undici");
 // const { HttpsProxyAgent } = require("https-proxy-agent")
 const Config = require('../utils/config')
-
+global.getTokenBrowserMode = false
 async function getAccessToken(token) {
     let accessToken = undefined
     let expires = undefined
@@ -10,42 +10,50 @@ async function getAccessToken(token) {
         if (token.length > 2500) {
             // next token
             // get accessToken
-            let cookies = await global.cgp.getCookies()
-            let cookie = ''
-            for (let c of cookies) {
-                cookie += `${c.name}=${c.value}; `
-            }
-            cookie += `__Secure-next-auth.session-token=${token}; `
-            let ua = await global.cgp.getUa()
-            let option = {
-                method: "GET",
-                headers: {
-                    Cookie: cookie,
-                    'User-Agent': ua,
-                    Referer: 'https://chatgpt.com/',
-                    "Sec-Ch-Ua":'"Chromium";v="124", "Google Chrome";v="124", ";Not A Brand";v="99"',
-                    "Sec-Ch-Ua-Mobile":"?0",
-                    "Sec-Ch-Ua-Platform":'"Windows"',
-                    "Sec-Fetch-Dest":"document",
-                    "Sec-Fetch-Mode":"navigate",
-                    "Sec-Fetch-Site":"cross-site",
-                    "Sec-Fetch-User":"?1",
-                    "Upgrade-Insecure-Requests":"1",
-                    "Accept-Encoding":"gzip, deflate, br, zstd",
-                    "Accept-Language":"en-US,en;q=0.9",
-                    "Cache-Control":"max-age=0"
+            if (global.getTokenBrowserMode) {
+                let session = await global.cgp.getToken(token)
+                console.log(session)
+                accessToken = session.accessToken
+                expires = session.expires
+            } else {
+                let headers = await global.cgp.getGetTokenHeaders()
+                headers.Cookie += `__Secure-next-auth.session-token=${token}; `
+                let option = {
+                    method: "GET",
+                    headers: Object.assign(headers, {
+                        Referer: 'https://chatgpt.com/',
+                        "Sec-Fetch-Dest":"document",
+                        "Sec-Fetch-Mode":"navigate",
+                        "Sec-Fetch-Site":"cross-site",
+                        "Sec-Fetch-User":"?1",
+                        "Upgrade-Insecure-Requests":"1",
+                        "Accept-Encoding":"gzip, deflate, br, zstd",
+                        "Accept-Language":"en-US,en;q=0.9",
+                        "Cache-Control":"max-age=0"
+                    })
+                }
+                let proxy = Config.proxy
+                if (proxy) {
+                    const agent = new ProxyAgent(proxy)
+                    option.dispatcher = agent
+                }
+                let sessionRsp = await fetch("https://chatgpt.com/api/auth/session", option)
+                if (sessionRsp.status !== 200) {
+                    console.log('get token failed: ' + sessionRsp.status)
+                    console.log('change to browser mode')
+                    let session = await global.cgp.getToken(token)
+                    console.log(session)
+                    accessToken = session.accessToken
+                    expires = session.expires
+                    global.getTokenBrowserMode = true
+                    // throw new Error('get token failed: ' + sessionRsp.status)
+                } else {
+                    let session = await sessionRsp.json()
+                    console.log(session)
+                    accessToken = session.accessToken
+                    expires = session.expires
                 }
             }
-            let proxy = Config.proxy
-            if (proxy) {
-                const agent = new ProxyAgent(proxy)
-                option.dispatcher = agent
-            }
-            let sessionRsp = await fetch("https://chatgpt.com/api/auth/session", option)
-            let session = await sessionRsp.json()
-            console.log(session)
-            accessToken = session.accessToken
-            expires = session.expires
         } else {
             // access token
             accessToken = token
