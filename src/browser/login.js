@@ -1,6 +1,13 @@
 const delay = require('delay')
-const cv = require('opencv4nodejs');
-const { createCanvas, Image } = require('canvas');
+/**
+ * @type {import('opencv4nodejs')}
+ */
+let cv
+try {
+  cv = require('opencv4nodejs');
+} catch (e) {
+  console.log('opencv not found')
+}
 const fs = require('fs');
 const key = '__Secure-next-auth.session-token'
 const robot= require("@hurdlegroup/robotjs");
@@ -50,8 +57,10 @@ async function loginByUsernameAndPassword(username, password, proxy = '') {
         let passwordInput = await page.waitForXPath("//input[@name='password']")
         await passwordInput.focus()
         await passwordInput.type(password)
-      } catch (err) {}
-      resolve({})
+        resolve({ success: true })
+      } catch (err) {
+        resolve({})
+      }
     })
     let turnstilePromise = new Promise(async (resolve, reject) => {
       let retry = 10
@@ -79,7 +88,9 @@ async function loginByUsernameAndPassword(username, password, proxy = '') {
       }
       reject(new Error('Turnstile not found'))
     })
-    let passwordRes = await Promise.race([passwordPromise, turnstilePromise])
+    let passwordRes = cv ? (await Promise.race([passwordPromise, turnstilePromise]))
+        : (await passwordPromise)
+    let success = passwordRes.success
     if (passwordRes.x) {
       turnstile = true
       console.log('disconnect browser first to bypass turnstile check')
@@ -110,6 +121,11 @@ async function loginByUsernameAndPassword(username, password, proxy = '') {
       let passwordInput = await page.waitForXPath("//input[@name='password']")
       await passwordInput.focus()
       await passwordInput.type(password)
+      success = true
+    }
+    if (!success) {
+      console.log('error: password input not found')
+      throw new Error('error')
     }
     continueBtn = await page.waitForXPath("//button[contains(.//text(), '继续') or contains(.//text(), 'Continue')]")
     await delay(1000)
