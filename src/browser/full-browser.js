@@ -315,6 +315,9 @@ class ChatGPTPuppeteer extends Puppeteer {
     // todo mutex lock
     let page = await this.browser.newPage()
     try {
+      await page.deleteCookie({
+        name: '__Secure-next-auth.session-token',
+      })
       // await page.setCacheEnabled(false)
       await page.setCookie({
         name: '__Secure-next-auth.session-token',
@@ -1246,7 +1249,7 @@ async function browserNormalFetch(url, headers, body, method) {
   console.log(headers)
   const res = await fetch(url, {
     method,
-    body: method.toLowerCase() !== 'get' ? JSON.stringify(body) : undefined,
+    body: (method.toLowerCase() !== 'get' && method.toLowerCase() !== 'head') ? JSON.stringify(body) : undefined,
     headers: headers
   })
   let responseHeaders = {}

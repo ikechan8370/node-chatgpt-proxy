@@ -162,10 +162,6 @@ async function loginByUsernameAndPassword(username, password, proxy = '') {
       retry--
     }
     console.log('no cookie found, possibly login failed')
-    await page.deleteCookie({
-      name: key
-    })
-    await page.close()
     return null
   } catch (err) {
     console.error(err)
@@ -175,6 +171,9 @@ async function loginByUsernameAndPassword(username, password, proxy = '') {
       await global.cgp.init(false)
     }
     try {
+      await page.deleteCookie({
+        name: key
+      })
       await page.close()
     } catch (err) {
     }

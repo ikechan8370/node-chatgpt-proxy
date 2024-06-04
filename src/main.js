@@ -338,17 +338,8 @@ app.get('/login', async (req, res) => {
 
 app.all("/*", async (req, res) => {
   let body = req.body
-  let uri = req.path
-  let headers = JSON.parse(JSON.stringify(req.headers))
-  res.set('Cache-Control', 'no-cache');
-  console.log('request: ' + uri)
-  let newHeaders = {
-    'content-type': 'application/json',
-    'x-openai-assistant-app-id': '',
-    "accept": "application/json",
-    'authorization': headers['authorization']
-  }
-  let response = await sendRequestNormal(uri, req.method, body, newHeaders)
+  let uri = req.url
+  let response = await sendRequestNormal(uri, req.method, body, req.headers)
   // res.set('Content-Type', 'application/json');
   res.status(response?.status || 500)
   if (response?.headers) {
@@ -357,6 +348,13 @@ app.all("/*", async (req, res) => {
         // no compression
         return
       }
+      if (key.toLowerCase() === 'location') {
+        let location = response.headers[key]
+        location = location.replace('https://chatgpt.com', '')
+        res.set(key, location)
+        return
+      }
+      // todo Set-Cookie
       res.set(key, response.headers[key])
     })
   }
