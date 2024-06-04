@@ -317,6 +317,7 @@ class ChatGPTPuppeteer extends Puppeteer {
     try {
       await page.deleteCookie({
         name: '__Secure-next-auth.session-token',
+        domain: '.chatgpt.com',
       })
       // await page.setCacheEnabled(false)
       await page.setCookie({
