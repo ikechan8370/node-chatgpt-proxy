@@ -65,7 +65,6 @@ async function getAccessToken(token) {
                     }
                 } catch (err) {
                     console.error(err)
-                    console.log('get token failed: ' + sessionRsp.status)
                     console.log('change to browser mode')
                     let session = await global.cgp.getToken(token)
                     console.log(session)
