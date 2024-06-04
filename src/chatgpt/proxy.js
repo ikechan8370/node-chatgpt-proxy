@@ -43,8 +43,8 @@ async function getAccessToken(token) {
                     console.log('change to browser mode')
                     let session = await global.cgp.getToken(token)
                     console.log(session)
-                    accessToken = session.accessToken
-                    expires = session.expires
+                    accessToken = session?.accessToken
+                    expires = session?.expires
                     global.getTokenBrowserMode = true
                     // throw new Error('get token failed: ' + sessionRsp.status)
                 } else {
@@ -57,8 +57,8 @@ async function getAccessToken(token) {
                         console.log('change to browser mode')
                         let session = await global.cgp.getToken(token)
                         console.log(session)
-                        accessToken = session.accessToken
-                        expires = session.expires
+                        accessToken = session?.accessToken
+                        expires = session?.expires
                         global.getTokenBrowserMode = true
                     }
                 }
