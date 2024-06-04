@@ -37,22 +37,9 @@ async function getAccessToken(token) {
                     const agent = new ProxyAgent(proxy)
                     option.dispatcher = agent
                 }
-                let sessionRsp = await fetch("https://chatgpt.com/api/auth/session", option)
-                if (sessionRsp.status !== 200) {
-                    console.log('get token failed: ' + sessionRsp.status)
-                    console.log('change to browser mode')
-                    let session = await global.cgp.getToken(token)
-                    console.log(session)
-                    accessToken = session?.accessToken
-                    expires = session?.expires
-                    global.getTokenBrowserMode = true
-                    // throw new Error('get token failed: ' + sessionRsp.status)
-                } else {
-                    let session = await sessionRsp.json()
-                    console.log(session)
-                    accessToken = session.accessToken
-                    expires = session.expires
-                    if (!accessToken) {
+                try {
+                    let sessionRsp = await fetch("https://chatgpt.com/api/auth/session", option)
+                    if (sessionRsp.status !== 200) {
                         console.log('get token failed: ' + sessionRsp.status)
                         console.log('change to browser mode')
                         let session = await global.cgp.getToken(token)
@@ -60,7 +47,31 @@ async function getAccessToken(token) {
                         accessToken = session?.accessToken
                         expires = session?.expires
                         global.getTokenBrowserMode = true
+                        // throw new Error('get token failed: ' + sessionRsp.status)
+                    } else {
+                        let session = await sessionRsp.json()
+                        console.log(session)
+                        accessToken = session.accessToken
+                        expires = session.expires
+                        if (!accessToken) {
+                            console.log('get token failed: ' + sessionRsp.status)
+                            console.log('change to browser mode')
+                            let session = await global.cgp.getToken(token)
+                            console.log(session)
+                            accessToken = session?.accessToken
+                            expires = session?.expires
+                            global.getTokenBrowserMode = true
+                        }
                     }
+                } catch (err) {
+                    console.error(err)
+                    console.log('get token failed: ' + sessionRsp.status)
+                    console.log('change to browser mode')
+                    let session = await global.cgp.getToken(token)
+                    console.log(session)
+                    accessToken = session?.accessToken
+                    expires = session?.expires
+                    global.getTokenBrowserMode = true
                 }
             }
         } else {
