@@ -13,8 +13,8 @@ async function getAccessToken(token) {
             if (global.getTokenBrowserMode) {
                 let session = await global.cgp.getToken(token)
                 console.log(session)
-                accessToken = session.accessToken
-                expires = session.expires
+                accessToken = session?.accessToken
+                expires = session?.expires
             } else {
                 let headers = await global.cgp.getGetTokenHeaders()
                 headers.Cookie += `__Secure-next-auth.session-token=${token}; `
