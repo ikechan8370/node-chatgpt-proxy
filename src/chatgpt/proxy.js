@@ -33,11 +33,11 @@ async function getAccessToken(token) {
                     })
                 }
                 let proxy = Config.proxy
-                if (proxy) {
-                    const agent = new ProxyAgent(proxy)
-                    option.dispatcher = agent
-                }
                 try {
+                    if (proxy) {
+                        const agent = new ProxyAgent(proxy)
+                        option.dispatcher = agent
+                    }
                     let sessionRsp = await fetch("https://chatgpt.com/api/auth/session", option)
                     if (sessionRsp.status !== 200) {
                         console.log('get token failed: ' + sessionRsp.status)
