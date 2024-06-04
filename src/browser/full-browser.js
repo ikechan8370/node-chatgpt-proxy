@@ -341,6 +341,10 @@ class ChatGPTPuppeteer extends Puppeteer {
         name: '__Secure-next-auth.session-token',
         domain: '.chatgpt.com'
       })
+      this._page.deleteCookie({
+        name: '__Secure-next-auth.session-token',
+        domain: '.chatgpt.com'
+      })
       await page.close()
     }
   }
