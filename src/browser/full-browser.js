@@ -1,5 +1,5 @@
 const lodash = require('lodash');
-const { sha3_512 } = require('js-sha3');
+const {sha3_512} = require('js-sha3');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
 const Config = require('../utils/config')
 const delay = require('delay')
@@ -63,7 +63,7 @@ class Puppeteer {
     return puppeteer
   }
 
-  async disconnectBrowser () {
+  async disconnectBrowser() {
     await this.browser.disconnect()
     this.browser = null
   }
@@ -212,6 +212,10 @@ class ChatGPTPuppeteer extends Puppeteer {
       await minimizePage(this._page)
     }
 
+    this.getJa3().then(fingerprint => {
+      console.log('ja3 fingerprint got: ' + fingerprint?.ja3)
+    })
+
     return true
   }
 
@@ -263,21 +267,22 @@ class ChatGPTPuppeteer extends Puppeteer {
     return result
   }
 
-  async cleanNextToken () {
+  async cleanNextToken() {
     let key = '__Secure-next-auth.session-token'
     await this._page.setCookie({
-        name: key,
-        value: '',
-        domain: 'chatgpt.com',
-        path: '/',
-        expires: -1,
-        httpOnly: true,
+      name: key,
+      value: '',
+      domain: 'chatgpt.com',
+      path: '/',
+      expires: -1,
+      httpOnly: true,
     })
   }
 
-  async getUa () {
+  async getUa() {
     return await this.browser.userAgent()
   }
+
   async getCookies() {
     return await this._page.cookies()
   }
@@ -313,7 +318,7 @@ class ChatGPTPuppeteer extends Puppeteer {
 
   async getToken(nextToken) {
     // todo mutex lock
-    let page = await this.browser.newPage()
+    let page = this._page
     try {
       await page.deleteCookie({
         name: '__Secure-next-auth.session-token',
@@ -326,9 +331,9 @@ class ChatGPTPuppeteer extends Puppeteer {
         domain: '.chatgpt.com',
         secure: true
       })
-      await page.goto('https://chatgpt.com/api/auth/session', {
-        waitUntil: 'networkidle0'
-      })
+      // await page.goto('https://chatgpt.com/api/auth/session', {
+      //   waitUntil: 'networkidle0'
+      // })
       let session = await page.evaluate(() => {
         return fetch("https://chatgpt.com/api/auth/session", {
           method: 'GET'
@@ -338,14 +343,32 @@ class ChatGPTPuppeteer extends Puppeteer {
     } catch (e) {
       console.error(e)
     } finally {
-      await page.deleteCookie({
-        name: '__Secure-next-auth.session-token',
-        domain: '.chatgpt.com'
-      })
       this._page.deleteCookie({
         name: '__Secure-next-auth.session-token',
         domain: '.chatgpt.com'
       })
+      // await page.close()
+    }
+  }
+
+  async getJa3() {
+    if (this.fingerprint) {
+      return this.fingerprint
+    }
+    let page = await this.browser.newPage()
+    try {
+      await page.goto('https://scrapfly.io/web-scraping-tools/ja3-fingerprint', {
+        waitUntil: 'networkidle2'
+      })
+      let fingerprint = await page.evaluate(() => {
+        return window.fingerprint
+      })
+      this.fingerprint = fingerprint
+      return fingerprint
+    } catch (err) {
+      console.error(err)
+      return null
+    } finally {
       await page.close()
     }
   }
@@ -394,7 +417,7 @@ class ChatGPTPuppeteer extends Puppeteer {
       "conversation_mode": {
         "kind": "primary_assistant"
       },
-      suggestions: ["Could you help me plan a relaxing day that focuses on activities for rejuvenation? To start, can you ask me what my favorite forms of relaxation are?","Write a text asking a friend to be my plus-one at a wedding next month. I want to keep it super short and casual, and offer an out.","Write a script to automate sending daily email reports in Python, and walk me through how I would set it up.","Can you test my knowledge on ancient civilizations by asking me specific questions? Start by asking me which civilization I'm most interested in and why."],
+      suggestions: ["Could you help me plan a relaxing day that focuses on activities for rejuvenation? To start, can you ask me what my favorite forms of relaxation are?", "Write a text asking a friend to be my plus-one at a wedding next month. I want to keep it super short and casual, and offer an out.", "Write a script to automate sending daily email reports in Python, and walk me through how I would set it up.", "Can you test my knowledge on ancient civilizations by asking me specific questions? Start by asking me which civilization I'm most interested in and why."],
       "force_paragen": false,
       "force_paragen_model_slug": "",
       "force_nulligen": false,
@@ -464,16 +487,18 @@ class ChatGPTPuppeteer extends Puppeteer {
       p: requirementToken
     }, newHeaders)
     if (proofRsp.error) {
-        return proofRsp
+      return proofRsp
     }
     let proofRspJsonStr = proofRsp.body
     let proof = JSON.parse(proofRspJsonStr)
     let token = proof.token
     // console.log({proof, token})
     let cookies = await this._page.cookies()
+
     function getCookieByName(cookies, name) {
       return cookies.find(cookie => cookie.name === name);
     }
+
     const cookie = getCookieByName(cookies, 'oai-did');
     this.deviceId = cookie.value
     let pow = "gAAAAAB" + await this._page.evaluate(getPow, proof.proofofwork.seed, proof.proofofwork.difficulty)
@@ -633,14 +658,15 @@ async function browserRequest(
   return result
 }
 
-async function getPow (seed, difficulty) {
+async function getPow(seed, difficulty) {
   function o(e) {
     return e[Math.floor(Math.random() * e.length)]
   }
+
   function getConfig() {
     var e, t, n, r, a, i, s, l;
     return [
-        // (null === (e = navigator) || void 0 === e ? void 0 : e.hardwareConcurrency) + (null === (t = screen) || void 0 === t ? void 0 : t.width) + (null === (n = screen) || void 0 === n ? void 0 : n.height),
+      // (null === (e = navigator) || void 0 === e ? void 0 : e.hardwareConcurrency) + (null === (t = screen) || void 0 === t ? void 0 : t.width) + (null === (n = screen) || void 0 === n ? void 0 : n.height),
       (null === (e = navigator) || void 0 === e ? void 0 : 16) + (null === (t = screen) || void 0 === t ? void 0 : 2195) + (null === (n = screen) || void 0 === n ? void 0 : 1235),
       "" + new Date,
       // null === (r = performance) || void 0 === r || null === (r = r.memory) || void 0 === r ? void 0 : r.jsHeapSizeLimit,
@@ -649,15 +675,15 @@ async function getPow (seed, difficulty) {
       // use windows UA instead to keep the difficulty value large enough
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.0.0",
       // null === (a = navigator) || void 0 === a ? void 0 : a.userAgent,
-      o(Array.from(document.scripts).map(e=>null == e ? void 0 : e.src).filter(e=>e)),
-      null !== (i = (null !== (s = Array.from(document.scripts || []).map(e=>{
+      o(Array.from(document.scripts).map(e => null == e ? void 0 : e.src).filter(e => e)),
+      null !== (i = (null !== (s = Array.from(document.scripts || []).map(e => {
             var t;
             return null == e || null === (t = e.src) || void 0 === t ? void 0 : t.match("dpl.*")
           }
-      ).filter(e=>null == e ? void 0 : e.length)[0]) && void 0 !== s ? s : [])[0]) && void 0 !== i ? i : null,
+      ).filter(e => null == e ? void 0 : e.length)[0]) && void 0 !== s ? s : [])[0]) && void 0 !== i ? i : null,
       navigator.language, null === (l = navigator.languages) || void 0 === l ? void 0 : l.join(","),
       null == Math ? void 0 : Math.random(),
-      function() {
+      function () {
         let e = o(Object.keys(Object.getPrototypeOf(navigator)));
         try {
           return "".concat(e, "−").concat(navigator[e].toString())
@@ -666,7 +692,9 @@ async function getPow (seed, difficulty) {
         }
       }(), o(Object.keys(document)), o(Object.keys(window))]
   }
+
   const maxAttempts = 50000
+
   async function _generateAnswer(e, t) {
     let n = "e"
         , r = performance.now();
@@ -675,18 +703,18 @@ async function getPow (seed, difficulty) {
           , i = getConfig();
       console.log(i)
       for (let o = 0; o < maxAttempts; o++) {
-        (!n || 0 >= n.timeRemaining()) && (n = await new Promise(e=>{
-              (window.requestIdleCallback || function(e) {
-                    return setTimeout(()=>{
+        (!n || 0 >= n.timeRemaining()) && (n = await new Promise(e => {
+              (window.requestIdleCallback || function (e) {
+                    return setTimeout(() => {
                           e({
-                            timeRemaining: ()=>1,
+                            timeRemaining: () => 1,
                             didTimeout: !1
                           })
                         }
                         , 0),
                         0
                   }
-              )(t=>{
+              )(t => {
                     e(t)
                   }
               )
@@ -716,6 +744,7 @@ async function getPow (seed, difficulty) {
     return (e = JSON.stringify(e),
         window.TextEncoder) ? btoa(String.fromCharCode(...new TextEncoder().encode(e))) : btoa(unescape(encodeURIComponent(e)))
   }
+
   // sometimes difficulty is too low, like 32 or 45, just retry 5 times
   let retry = 5
   let answer = await _generateAnswer(seed, difficulty)
@@ -796,11 +825,13 @@ async function browserPostEventStream(
     const responseP = new Promise(
         async (resolve, reject) => {
           let finish = false
+
           function onMessage(data) {
             window[cbfName](data)
             try {
               finish = JSON.parse(data).message?.status === 'finished_successfully'
-            } catch (e) {}
+            } catch (e) {
+            }
             if (data === '[DONE]' && finish) {
               return resolve({
                 error: null,
@@ -839,6 +870,7 @@ async function browserPostEventStream(
               reject(err)
             }
           }
+
           if (wsUrl) {
             let socket = new WebSocket(wsUrl)
             let finish = false
@@ -856,7 +888,8 @@ async function browserPostEventStream(
                   let dataMsg = realMsg.trim().replace('data: ', '')
                   try {
                     finish = JSON.parse(dataMsg).message?.status === 'finished_successfully'
-                  } catch (e) {}
+                  } catch (e) {
+                  }
                   onMessage(dataMsg)
                   if (finish && realMsg.trim() === 'data: [DONE]') {
                     socket.close()

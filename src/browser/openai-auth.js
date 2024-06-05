@@ -1,7 +1,6 @@
 const delay = require('delay');
 const Config = require('../utils/config')
 const robot= require("@hurdlegroup/robotjs");
-// const e = require("express");
 
 async function getOpenAIAuth(opt = {}) {
     let {
@@ -16,7 +15,6 @@ async function getOpenAIAuth(opt = {}) {
     }
 
     try {
-        const userAgent = await browser.userAgent()
         if (!page) {
             if (forceNewPage) {
                 page = await browser.newPage()
@@ -53,55 +51,40 @@ async function getOpenAIAuth(opt = {}) {
     }
 }
 
-async function solveSimpleCaptchas(page) {
-    let x = 275
-    let y = 300
-    // await page.evaluate((x, y) => {
-    //     const marker = document.createElement('div');
-    //     marker.style.position = 'absolute';
-    //     marker.style.left = `${x}px`;
-    //     marker.style.top = `${y}px`;
-    //     marker.style.width = '10px';
-    //     marker.style.height = '10px';
-    //     marker.style.backgroundColor = 'red';
-    //     marker.style.border = '2px solid black';
-    //     marker.style.borderRadius = '50%';
-    //     marker.style.zIndex = '10000'; // Ensure it appears on top
-    //     document.body.appendChild(marker);
-    // }, x, y);
+/**
+ *
+ * @param page
+ * @param {boolean?} init if true, will call global.cgp.init after captcha solved
+ * @return {Promise<void>}
+ */
+async function solveSimpleCaptchas(page, init = true) {
     try {
         console.log("start to solve simple captchas")
         let success1 = (await page.title())?.includes('ChatGPT')
         let success2 = (await page.$x("//div[contains(., 'Get started')]"))?.length > 0 || (await page.$x("//div[contains(., 'Welcome')]"))?.length > 0
         console.log({success1, success2})
         let retry = 20;
-        let y = 450
-        let step = 10
         let met = false
+        let ys = [400, 410, 420, 430, 440, 450, 460, 470, 480, 490, 500]
         while (!success1 && !success2 && retry >= 0) {
+            console.log('captcha still exists, try to solve it, wait for 3 seconds, just be patient')
             met = true
             await global.cgp.disconnectBrowser()
             console.log('click checkbox')
-            robot.moveMouse(292, y)
-            robot.mouseClick('left')
-            // await page.mouse.click(x, y);
+            for (let cy of ys) {
+                robot.moveMouse(292, cy)
+                robot.mouseClick('left')
+            }
             await delay(3000)
             let browser = await global.cgp.browserInit()
             page = (await browser.pages())[0]
             success1 = (await page.title())?.includes('ChatGPT')
             success2 = (await page.$x("//div[contains(., 'Get started')]"))?.length > 0 || (await page.$x("//div[contains(., 'Welcome')]"))?.length > 0
             console.log({success1, success2})
-            y += step
-            if (y >= 500) {
-                step = -10
-            }
-            if (y <= 400) {
-                step += 10
-            }
             retry--
         }
         console.log("solve simple captchas: done")
-        if (met) {
+        if (met && init) {
             await global.cgp.init(false)
         }
     } catch (err) {
@@ -109,4 +92,4 @@ async function solveSimpleCaptchas(page) {
     }
 }
 
-module.exports = {getOpenAIAuth}
+module.exports = {getOpenAIAuth, solveSimpleCaptchas}

@@ -1,4 +1,5 @@
 const delay = require('delay')
+const {solveSimpleCaptchas} = require('./openai-auth')
 /**
  * @type {import('opencv4nodejs')}
  */
@@ -34,6 +35,7 @@ async function loginByUsernameAndPassword(username, password, proxy = '') {
       waitUntil: 'networkidle2'
     })
     await delay(500)
+    await solveSimpleCaptchas(page)
     let signupBtn = await page.waitForXPath("//button[contains(.//text(), '注册') or contains(.//text(), 'Sign up')]")
     if ((await page.$x("//a[contains(text(), 'Stay logged out')]"))?.length > 0) {
       const closeModalBtn = await page.waitForXPath('//a[contains(text(), "Stay logged out")]')

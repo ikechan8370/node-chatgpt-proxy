@@ -2,6 +2,7 @@ const delay = require("delay");
 const { fetch, ProxyAgent } = require("undici");
 // const { HttpsProxyAgent } = require("https-proxy-agent")
 const Config = require('../utils/config')
+const initCycleTLS = require('cycletls');
 global.getTokenBrowserMode = false
 async function getAccessToken(token) {
     let accessToken = undefined
@@ -16,12 +17,22 @@ async function getAccessToken(token) {
                 accessToken = session?.accessToken
                 expires = session?.expires
             } else {
-                let headers = await global.cgp.getGetTokenHeaders()
-                headers.Cookie += `__Secure-next-auth.session-token=${token}; `
+                let cookies = await global.cgp.getCookies()
+                let cookie = ''
+                for (let c of cookies) {
+                    cookie += `${c.name}=${c.value}; `
+                }
+                cookie += `__Secure-next-auth.session-token=${token}; `
+                let ua = await global.cgp.getUa()
                 let option = {
                     method: "GET",
-                    headers: Object.assign(headers, {
+                    headers: {
+                        Cookie: cookie,
+                        'User-Agent': ua,
                         Referer: 'https://chatgpt.com/',
+                        "Sec-Ch-Ua":'"Chromium";v="124", "Google Chrome";v="124", ";Not A Brand";v="99"',
+                        "Sec-Ch-Ua-Mobile":"?0",
+                        "Sec-Ch-Ua-Platform":'"Windows"',
                         "Sec-Fetch-Dest":"document",
                         "Sec-Fetch-Mode":"navigate",
                         "Sec-Fetch-Site":"cross-site",
@@ -30,17 +41,22 @@ async function getAccessToken(token) {
                         "Accept-Encoding":"gzip, deflate, br, zstd",
                         "Accept-Language":"en-US,en;q=0.9",
                         "Cache-Control":"max-age=0"
-                    })
+                    }
                 }
                 let proxy = Config.proxy
                 try {
-                    if (proxy) {
-                        const agent = new ProxyAgent(proxy)
-                        option.dispatcher = agent
-                    }
-                    let sessionRsp = await fetch("https://chatgpt.com/api/auth/session", option)
-                    if (sessionRsp.status !== 200) {
-                        console.log('get token failed: ' + sessionRsp.status)
+                    const { ja3 } = await global.cgp.getJa3()
+                    const cycleTLS = await initCycleTLS();
+                    const response = await cycleTLS('https://chatgpt.com/api/auth/session', {
+                        ja3: ja3,
+                        userAgent: ua,
+                        headers: option.headers,
+                        proxy
+                    }, 'get');
+                    await cycleTLS.exit();
+
+                    if (response.status !== 200) {
+                        console.log('get token failed: ' + response.status)
                         console.log('change to browser mode')
                         let session = await global.cgp.getToken(token)
                         console.log(session)
@@ -49,12 +65,12 @@ async function getAccessToken(token) {
                         global.getTokenBrowserMode = true
                         // throw new Error('get token failed: ' + sessionRsp.status)
                     } else {
-                        let session = await sessionRsp.json()
+                        let session = response.body
                         console.log(session)
                         accessToken = session.accessToken
                         expires = session.expires
                         if (!accessToken) {
-                            console.log('get token failed: ' + sessionRsp.status)
+                            console.log('get token failed: ' + response.status, session)
                             console.log('change to browser mode')
                             let session = await global.cgp.getToken(token)
                             console.log(session)

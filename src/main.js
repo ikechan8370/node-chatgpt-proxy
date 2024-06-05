@@ -335,6 +335,22 @@ app.get('/login', async (req, res) => {
     })
   })
 })
+app.get("/headers", async (req, res) => {
+  try {
+    let headers = await global.cgp.getGetTokenHeaders()
+    res.send(headers)
+  } catch (err) {
+    res.status(500)
+        .send({
+          error: err.message
+        })
+  }
+})
+
+app.get('/tls-fingerprint', async (req, res) => {
+  let fingerprint = await global.cgp.getJa3()
+  res.send(fingerprint || {})
+})
 
 app.all("/*", async (req, res) => {
   let body = req.body
