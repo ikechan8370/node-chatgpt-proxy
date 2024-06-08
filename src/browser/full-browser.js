@@ -246,13 +246,13 @@ class ChatGPTPuppeteer extends Puppeteer {
   async sendRequest(
       url, method, body, newHeaders = {}, cookie = {}
   ) {
-    if (Object.keys(cookie).length > 0) {
-      const cookies = await this._page.cookies();
-      let cookieString = cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ');
-      for (const k of Object.keys(cookie)) {
-        cookieString += `${k}=${cookie[k]}; `
-      }
-      newHeaders['cookie-pre'] = cookieString
+    for (let ckKey of Object.keys(cookie)) {
+        await this._page.setCookie({
+            name: ckKey,
+            value: cookie[ckKey],
+            domain: '.chatgpt.com',
+            secure: true
+        })
     }
     const result = await this._page.evaluate(
         browserNormalFetch,
@@ -261,9 +261,13 @@ class ChatGPTPuppeteer extends Puppeteer {
         body,
         method
     )
-
     console.log('<<< EVALUATE', result)
-
+    for (let ckKey of Object.keys(cookie)) {
+      await this._page.deleteCookie({
+        name: ckKey,
+        domain: '.chatgpt.com'
+      })
+    }
     return result
   }
 
@@ -417,12 +421,13 @@ class ChatGPTPuppeteer extends Puppeteer {
       "conversation_mode": {
         "kind": "primary_assistant"
       },
-      suggestions: ["Could you help me plan a relaxing day that focuses on activities for rejuvenation? To start, can you ask me what my favorite forms of relaxation are?", "Write a text asking a friend to be my plus-one at a wedding next month. I want to keep it super short and casual, and offer an out.", "Write a script to automate sending daily email reports in Python, and walk me through how I would set it up.", "Can you test my knowledge on ancient civilizations by asking me specific questions? Start by asking me which civilization I'm most interested in and why."],
+      suggestions: [],
       "force_paragen": false,
       "force_paragen_model_slug": "",
       "force_nulligen": false,
       "force_rate_limit": false,
       "reset_rate_limits": false,
+      force_use_sse: true
     }
 
     if (conversationId) {

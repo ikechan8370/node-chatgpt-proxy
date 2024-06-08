@@ -1,92 +1,72 @@
 const delay = require("delay");
-const { fetch, ProxyAgent } = require("undici");
-// const { HttpsProxyAgent } = require("https-proxy-agent")
-const Config = require('../utils/config')
-const initCycleTLS = require('cycletls');
+const crypto = require('crypto');
+const {request} = require("../utils/request");
 global.getTokenBrowserMode = false
+
+const cachedTokenMap = new Map()
+
 async function getAccessToken(token) {
     let accessToken = undefined
     let expires = undefined
     if (token) {
         if (token.length > 2500) {
             // next token
-            // get accessToken
-            if (global.getTokenBrowserMode) {
-                let session = await global.cgp.getToken(token)
-                console.log(session)
+            const hash = crypto.createHash('md5');
+            hash.update(token);
+            let tokenHash = hash.digest('hex')
+            if (cachedTokenMap.has(tokenHash)) {
+                let session = cachedTokenMap.get(tokenHash)
                 accessToken = session?.accessToken
                 expires = session?.expires
             } else {
-                let cookies = await global.cgp.getCookies()
-                let cookie = ''
-                for (let c of cookies) {
-                    cookie += `${c.name}=${c.value}; `
-                }
-                cookie += `__Secure-next-auth.session-token=${token}; `
-                let ua = await global.cgp.getUa()
-                let option = {
-                    method: "GET",
-                    headers: {
-                        Cookie: cookie,
-                        'User-Agent': ua,
-                        Referer: 'https://chatgpt.com/',
-                        "Sec-Ch-Ua":'"Chromium";v="124", "Google Chrome";v="124", ";Not A Brand";v="99"',
-                        "Sec-Ch-Ua-Mobile":"?0",
-                        "Sec-Ch-Ua-Platform":'"Windows"',
-                        "Sec-Fetch-Dest":"document",
-                        "Sec-Fetch-Mode":"navigate",
-                        "Sec-Fetch-Site":"cross-site",
-                        "Sec-Fetch-User":"?1",
-                        "Upgrade-Insecure-Requests":"1",
-                        "Accept-Encoding":"gzip, deflate, br, zstd",
-                        "Accept-Language":"en-US,en;q=0.9",
-                        "Cache-Control":"max-age=0"
-                    }
-                }
-                let proxy = Config.proxy
-                try {
-                    const { ja3 } = await global.cgp.getJa3()
-                    const cycleTLS = await initCycleTLS();
-                    const response = await cycleTLS('https://chatgpt.com/api/auth/session', {
-                        ja3: ja3,
-                        userAgent: ua,
-                        headers: option.headers,
-                        proxy
-                    }, 'get');
-                    await cycleTLS.exit();
-
-                    if (response.status !== 200) {
-                        console.log('get token failed: ' + response.status)
-                        console.log('change to browser mode')
-                        let session = await global.cgp.getToken(token)
-                        console.log(session)
-                        accessToken = session?.accessToken
-                        expires = session?.expires
-                        global.getTokenBrowserMode = true
-                        // throw new Error('get token failed: ' + sessionRsp.status)
-                    } else {
-                        let session = response.body
-                        console.log(session)
-                        accessToken = session.accessToken
-                        expires = session.expires
-                        if (!accessToken) {
-                            console.log('get token failed: ' + response.status, session)
-                            console.log('change to browser mode')
-                            let session = await global.cgp.getToken(token)
-                            console.log(session)
+                // get accessToken
+                if (getTokenBrowserMode) {
+                    let session = await cgp.getToken(token)
+                    logger.info(session)
+                    accessToken = session?.accessToken
+                    expires = session?.expires
+                } else {
+                    let cookie = `__Secure-next-auth.session-token=${token}; `
+                    try {
+                        const response = await request('get', 'https://chatgpt.com/api/auth/session', undefined, {
+                            'Cookie': cookie,
+                        })
+                        if (response.status !== 200) {
+                            logger.info('get token failed: ' + response.status)
+                            logger.info('change to browser mode')
+                            let session = await cgp.getToken(token)
+                            logger.info(session)
                             accessToken = session?.accessToken
                             expires = session?.expires
                             global.getTokenBrowserMode = true
+                            // throw new Error('get token failed: ' + sessionRsp.status)
+                        } else {
+                            let session = response.body
+                            logger.info(session)
+                            accessToken = session.accessToken
+                            expires = session.expires
+                            if (!accessToken) {
+                                logger.info('get token failed: ' + response.status, session)
+                                logger.info('change to browser mode')
+                                let session = await cgp.getToken(token)
+                                logger.info(session)
+                                accessToken = session?.accessToken
+                                expires = session?.expires
+                                global.getTokenBrowserMode = true
+                            }
                         }
+                    } catch (err) {
+                        logger.error(err)
+                        logger.info('change to browser mode')
+                        let session = await cgp.getToken(token)
+                        logger.info(session)
+                        accessToken = session?.accessToken
+                        expires = session?.expires
+                        global.getTokenBrowserMode = true
                     }
-                } catch (err) {
-                    console.error(err)
-                    console.log('change to browser mode')
-                    let session = await global.cgp.getToken(token)
-                    console.log(session)
-                    accessToken = session?.accessToken
-                    expires = session?.expires
-                    global.getTokenBrowserMode = true
+                }
+                if (accessToken) {
+                    cachedTokenMap.set(tokenHash, {accessToken, expires})
                 }
             }
         } else {
@@ -111,13 +91,13 @@ async function sendRequestFull(uri, method, body, headers, onMessage) {
     let {accessToken} = await getAccessToken(token)
 
     try {
-        let result = await global.cgp.sendMessage(message, accessToken, {
+        let result = await cgp.sendMessage(message, accessToken, {
             parentMessageId, messageId, conversationId, model,
             onConversationResponse: onMessage, action
         })
         return result
     } catch (err) {
-        console.log(err.message)
+        logger.info(err.message)
         if (err.message.indexOf('Execution context was destroyed') > -1) {
             await delay(1500)
             return await sendRequestFull(uri, method, body, headers, onMessage)
@@ -133,9 +113,9 @@ async function sendRequestNormal(uri, method, body = {}, headers = {}, cookies =
         if (accessToken) {
             headers['Authorization'] = `Bearer ${accessToken}`
         }
-        return await global.cgp.sendRequest(uri, method, body, headers, cookies)
+        return await cgp.sendRequest(uri, method, body, headers, cookies)
     } catch (err) {
-        console.log(err.message)
+        logger.info(err.message)
         if (err.message.indexOf('Execution context was destroyed') > -1) {
             await delay(1500)
             return await sendRequestNormal(uri, method, body, headers, cookies)

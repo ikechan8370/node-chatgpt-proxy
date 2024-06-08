@@ -1,17 +1,17 @@
 function acquireLockAndPlus() {
-    while (global.lock !== 0) {
+    while (lock !== 0) {
         // wait for the lock to be released
     }
     global.lock = 1;
-    global.processingCount++;
+    processingCount++;
     releaseLock()
 }
 function acquireLockAndMinus() {
-    while (global.lock !== 0) {
+    while (lock !== 0) {
         // wait for the lock to be released
     }
     global.lock = 1;
-    global.processingCount--;
+    processingCount--;
     releaseLock()
 }
 

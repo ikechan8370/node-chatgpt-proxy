@@ -1,16 +1,18 @@
 const express = require('express')
+const crypto = require('crypto')
+const bunyan = require('bunyan');
+const { ProxyAgent, fetch } = require("undici");
+
+const { getOpenAIAuth } = require("./browser/openai-auth");
+const { sendRequestFull, sendRequestNormal, getAccessToken } = require('./chatgpt/proxy')
+const { ChatGPTPuppeteer } = require("./browser/full-browser");
+const Config = require("./utils/config");
+const { loginByUsernameAndPassword } = require("./browser/login");
+const { request } = require('./utils/request')
 const app = express()
 const port = 3000
-
-const crypto = require('crypto')
-const {getOpenAIAuth} = require("./browser/openai-auth");
-const {sendRequestFull, sendRequestNormal, getAccessToken} = require('./chatgpt/proxy')
-// const delay = require("delay");
-const {ChatGPTPuppeteer} = require("./browser/full-browser");
-const Config = require("./utils/config");
-const {ProxyAgent, fetch} = require("undici");
-const {loginByUsernameAndPassword} = require("./browser/login");
 app.use(express.json())
+global.logger = bunyan.createLogger({ name: 'node-chatgpt-proxy' });
 
 app.post('/backend-api/conversation', async function (req, res) {
   res.set({
@@ -18,7 +20,7 @@ app.post('/backend-api/conversation', async function (req, res) {
     'Connection': 'keep-alive'
   });
   let success = false
-  console.log("request body: " + JSON.stringify(req.body))
+  logger.info("request body: " + JSON.stringify(req.body))
   if (!req.body?.messages) {
     res.status(400).send({
       error: 'lack of messages'
@@ -32,21 +34,19 @@ app.post('/backend-api/conversation', async function (req, res) {
       res.write('Starting SSE stream...\n');
       res.flushHeaders()
     }
-    console.log(data)
+    logger.debug(data)
     res.write(`data: ${data}\n\n`)
     if (data === '[DONE]') {
       res.end()
     }
   }).then(result => {
-    // clearInterval(heartbeat)
-    // heartbeat = null
     if (result?.error) {
       res.status(result.error.statusCode || 400)
       res.send(result)
       res.end();
     }
   }).catch(err => {
-    console.log(err)
+    logger.info(err)
     res.status(err.statusCode || 500)
     res.send(err)
     res.end();
@@ -60,7 +60,7 @@ app.post('/v1/chat/completions', async function (req, res) {
     'Connection': 'keep-alive'
   });
   let success = false
-  console.log("request body: " + JSON.stringify(req.body))
+  logger.info("request body: " + JSON.stringify(req.body))
   if (!req.body?.messages) {
     res.status(400).send({
       error: 'lack of messages'
@@ -91,12 +91,7 @@ app.post('/v1/chat/completions', async function (req, res) {
     "parent_message_id": parentMessageId,
     "model": userModel,
     "timezone_offset_min": -480,
-    "suggestions": [
-      "把我当做五岁小朋友一样，向我解释超导体。",
-      "为 TikTok 帐户创建一个用于评估房地产楼盘的内容日历。",
-      "你能帮我设计一个用于教授基础编程技能的游戏概念吗？先询问我希望使用哪种编程语言。",
-      "你能帮我规划一个专门用于恢复活力的放松日吗？首先，你能问我最喜欢的放松方式是什么吗？"
-    ],
+    "suggestions": [],
     "history_and_training_disabled": false,
     "conversation_mode": {
       "kind": "primary_assistant"
@@ -104,6 +99,7 @@ app.post('/v1/chat/completions', async function (req, res) {
     "force_paragen": false,
     "force_paragen_model_slug": "",
     "force_nulligen": false,
+    // force_use_sse: true,
     "force_rate_limit": false,
     "reset_rate_limits": false,
   }
@@ -128,7 +124,7 @@ app.post('/v1/chat/completions', async function (req, res) {
         res.write('Starting SSE stream...\n');
         res.flushHeaders()
       }
-      console.log(data)
+      // logger.info(data)
       if (data === '[DONE]') {
         res.write('data: [DONE]\n\n')
         res.end()
@@ -180,7 +176,7 @@ app.post('/v1/chat/completions', async function (req, res) {
         res.end()
       }
     }).catch(err => {
-      console.log(err)
+      logger.info(err)
       res.send(err)
       res.status(err.statusCode || 500).end();
     })
@@ -188,7 +184,7 @@ app.post('/v1/chat/completions', async function (req, res) {
     let p = new Promise(async (resolve, reject) => {
       let current = ''
       await sendRequestFull('/backend-api/conversation', req.method, body, JSON.parse(JSON.stringify(req.headers)), data => {
-        // console.log(data)
+        // logger.info(data)
         if (data === '[DONE]') {
           resolve(current)
         } else {
@@ -202,7 +198,7 @@ app.post('/v1/chat/completions', async function (req, res) {
               let content = partial.message?.content?.parts[0]
               if (content.length > current.length) {
                 current = partial.message?.content?.parts[0]
-                console.log({role, current})
+                logger.info({role, current})
               }
             }
           } catch (e) {
@@ -232,7 +228,7 @@ app.post('/v1/chat/completions', async function (req, res) {
         }
       ]
     }
-    console.log(result)
+    logger.info(result)
     res.setHeader('Content-Type', 'application/json')
     res.send(JSON.stringify(result))
     res.end()
@@ -244,51 +240,27 @@ app.get("/backend-api/synthesize", async (req, res) => {
   const conversation_id = req.query.conversation_id
   const voice = req.query.voice || "cove"
   const format = req.query.format || "mp3"
-  console.log({message_id, conversation_id, voice, format})
+  logger.info({message_id, conversation_id, voice, format})
   let token = req.headers['authorization'] ? req.headers['authorization'].split(" ")[1] : undefined
-  let cookies = await global.cgp.getCookies()
+  let cookies = await cgp.getCookies()
   let cookie = ''
   for (let c of cookies) {
     cookie += `${c.name}=${c.value}; `
   }
   let {accessToken} = await getAccessToken(token)
-  let ua = await global.cgp.getUa()
-  let option = {
-    method: "GET",
-    headers: {
-      Cookie: cookie,
-      'User-Agent': ua,
-      Referer: 'https://chatgpt.com/',
-      "Sec-Ch-Ua": '"Chromium";v="124", "Google Chrome";v="124", ";Not A Brand";v="99"',
-      "Sec-Ch-Ua-Mobile": "?0",
-      "Sec-Ch-Ua-Platform": '"Windows"',
-      "Sec-Fetch-Dest": "document",
-      "Sec-Fetch-Mode": "navigate",
-      "Sec-Fetch-Site": "cross-site",
-      "Sec-Fetch-User": "?1",
-      "Upgrade-Insecure-Requests": "1",
-      // "Accept-Encoding":"gzip, deflate, br, zstd",
-      "Accept-Language": "en-US,en;q=0.9",
-      "Cache-Control": "max-age=0",
-      Authorization: `Bearer ${accessToken}`
-    }
-  }
-  let proxy = Config.proxy
-  if (proxy) {
-    const agent = new ProxyAgent(proxy)
-    option.dispatcher = agent
-  }
   try {
-    let voiceRsp = await fetch(`https://chatgpt.com/backend-api/synthesize?message_id=${message_id}&conversation_id=${conversation_id}&voice=${voice}&format=${format}`, option)
+    let voiceRsp = await request('get', `https://chatgpt.com/backend-api/synthesize?message_id=${message_id}&conversation_id=${conversation_id}&voice=${voice}&format=${format}`, undefined, {
+      Authorization: `Bearer ${accessToken}`
+    })
     if (voiceRsp.status !== 200) {
-      res.status(voiceRsp.status).send(await voiceRsp.text())
+      res.status(voiceRsp.status).send(voiceRsp.body)
       return
     }
-    let voiceBuffer = await voiceRsp.arrayBuffer()
-    res.header('Content-Type', voiceRsp.headers.get('content-type'))
-    res.send(Buffer.from(voiceBuffer))
+    res.header('Content-Type', voiceRsp.headers['Content-Type'])
+    let buffer = Buffer.from(voiceRsp.body, 'base64')
+    res.send(buffer)
   } catch (err) {
-    console.log(err)
+    logger.info(err)
     res.status(500).send(err.toString())
   }
 })
@@ -297,7 +269,7 @@ app.get('/login', async (req, res) => {
   const username = req.query.username
   const password = req.query.password
   const proxy = req.query.proxy
-  console.log('login request: ' + username)
+  logger.info('login request: ' + username)
   if (!username || !password) {
     res.status(400).send({
       error: 'username or password is empty'
@@ -315,7 +287,7 @@ app.get('/login', async (req, res) => {
           expires
         })
       } catch (err) {
-        console.error(err)
+        logger.error(err)
         res.send({
           nextToken: token,
           username,
@@ -329,7 +301,7 @@ app.get('/login', async (req, res) => {
       })
     }
   }).catch(err => {
-    console.log(err)
+    logger.info(err)
     res.status(500).send({
       error: err.message || 'login failed'
     })
@@ -337,7 +309,7 @@ app.get('/login', async (req, res) => {
 })
 app.get("/headers", async (req, res) => {
   try {
-    let headers = await global.cgp.getGetTokenHeaders()
+    let headers = await cgp.getGetTokenHeaders()
     res.send(headers)
   } catch (err) {
     res.status(500)
@@ -348,7 +320,7 @@ app.get("/headers", async (req, res) => {
 })
 
 app.get('/tls-fingerprint', async (req, res) => {
-  let fingerprint = await global.cgp.getJa3()
+  let fingerprint = await cgp.getJa3()
   res.send(fingerprint || {})
 })
 
@@ -383,20 +355,29 @@ global.processingCount = 0;
 global.CFStatus = false
 global.init = false
 global.cgp = new ChatGPTPuppeteer()
-global.cgp.init().then(res => {
-  getOpenAIAuth({}).then(res => {
-    console.log('first start up, fetch cloudflare token')
+global.cgp.init().then(() => {
+  getOpenAIAuth({}).then(() => {
+    logger.info('first start up, fetch cloudflare token')
     global.CFStatus = true
     global.init = true
   })
 })
 setInterval(async () => {
-  // console.log({lock, processingCount})
-  if (global.init && !global.CFStatus) {
+  if (init) {
+    try {
+      let response = await request('get', 'https://chatgpt.com/backend-api/sentinel/chat-requirements')
+      if (response.status === 403) {
+        global.CFStatus = false
+      }
+    } catch (e) {
+      logger.error(e)
+    }
+  }
+  if (init && !CFStatus) {
     global.init = false
     try {
+      logger.info('need refresh, fetching cloudflare token')
       getOpenAIAuth({}).then(res => {
-        console.log('need refresh, fetch cloudflare token')
         global.CFStatus = true
         global.init = true
       }).catch(err => {
@@ -407,9 +388,9 @@ setInterval(async () => {
       console.warn(err)
       global.init = true
     }
-
   }
-}, 500)
+}, 5000)
+
 app.listen(port, () => {
-  console.log(`node-chatgpt-proxy listening on port ${port}`)
+  logger.info(`node-chatgpt-proxy listening on port ${port}`)
 });
