@@ -3,9 +3,9 @@ const crypto = require('crypto');
 const {request} = require("../utils/request");
 global.getTokenBrowserMode = false
 
-const cachedTokenMap = new Map()
+global.cachedTokenMap = new Map()
 
-async function getAccessToken(token) {
+async function getAccessToken(token, useCache = true) {
     let accessToken = undefined
     let expires = undefined
     if (token) {
@@ -14,10 +14,19 @@ async function getAccessToken(token) {
             const hash = crypto.createHash('md5');
             hash.update(token);
             let tokenHash = hash.digest('hex')
-            if (cachedTokenMap.has(tokenHash)) {
+            if (useCache && cachedTokenMap.has(tokenHash)) {
                 let session = cachedTokenMap.get(tokenHash)
-                accessToken = session?.accessToken
+                // accessToken = session?.accessToken
                 expires = session?.expires
+                const expiresTime = new Date(expires);
+                const expiresTimeMinus24Hours = new Date(expiresTime.getTime() - 24 * 60 * 60 * 1000);
+                const now = new Date();
+                if (now < expiresTimeMinus24Hours) {
+                    accessToken = session?.accessToken
+                } else {
+                    cachedTokenMap.delete(tokenHash)
+                    return await getAccessToken(token)
+                }
             } else {
                 // get accessToken
                 if (getTokenBrowserMode) {
@@ -67,6 +76,9 @@ async function getAccessToken(token) {
                 }
                 if (accessToken) {
                     cachedTokenMap.set(tokenHash, {accessToken, expires})
+                    setTimeout(() => {
+                        cachedTokenMap.delete(tokenHash)
+                    }, 10 * 24 * 60 * 60 * 1000)
                 }
             }
         } else {
