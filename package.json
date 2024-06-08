@@ -13,7 +13,7 @@
     "@hurdlegroup/robotjs": "^0.11.7",
     "@lem0-packages/puppeteer-page-proxy": "^1.4.1",
     "bunyan": "^1.8.15",
-    "@ikechan8370/cycletls": "^1.0.26",
+    "@ikechan8370/cycletls": "^1.0.261",
     "delay": "^5.0.0",
     "eventsource-parser": "^0.1.0",
     "express": "^4.18.2",
