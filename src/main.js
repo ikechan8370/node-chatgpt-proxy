@@ -389,7 +389,7 @@ setInterval(async () => {
       global.init = true
     }
   }
-}, 5000)
+}, 15 * 60 * 1000)
 
 app.listen(port, () => {
   logger.info(`node-chatgpt-proxy listening on port ${port}`)
