@@ -5,6 +5,12 @@ global.getTokenBrowserMode = false
 
 global.cachedTokenMap = new Map()
 
+function purgeToken(token) {
+    const hash = crypto.createHash('md5');
+    hash.update(token);
+    let tokenHash = hash.digest('hex')
+    cachedTokenMap.delete(tokenHash)
+}
 async function getAccessToken(token, useCache = true) {
     let accessToken = undefined
     let expires = undefined
@@ -78,7 +84,7 @@ async function getAccessToken(token, useCache = true) {
                     cachedTokenMap.set(tokenHash, {accessToken, expires})
                     setTimeout(() => {
                         cachedTokenMap.delete(tokenHash)
-                    }, 10 * 24 * 60 * 60 * 1000)
+                    }, 9 * 24 * 60 * 60 * 1000)
                 }
             }
         } else {
@@ -88,11 +94,12 @@ async function getAccessToken(token, useCache = true) {
     }
     return {
         accessToken,
-        expires
+        expires,
+        isNext: token.length > 2500
     }
 }
 
-async function sendRequestFull(uri, method, body, headers, onMessage) {
+async function sendRequestFull(uri, method, body, headers, onMessage, retry = false) {
     let message = body.messages[0].content.parts[0]
     let parentMessageId = body.parent_message_id
     let messageId = body.messages[0].id
@@ -100,13 +107,17 @@ async function sendRequestFull(uri, method, body, headers, onMessage) {
     let model = body.model || 'auto'
     let token = headers['authorization'] ? headers['authorization'].split(" ")[1] : undefined
     let action = body.action
-    let {accessToken} = await getAccessToken(token)
+    let {accessToken, isNext} = await getAccessToken(token)
 
     try {
         let result = await cgp.sendMessage(message, accessToken, {
             parentMessageId, messageId, conversationId, model,
             onConversationResponse: onMessage, action
         })
+        if (!retry && isNext && result.status === 401) {
+            purgeToken(token)
+            return await sendRequestFull(uri, method, body, headers, onMessage, true)
+        }
         return result
     } catch (err) {
         logger.info(err.message)

@@ -183,7 +183,7 @@ app.post('/v1/chat/completions', async function (req, res) {
   } else {
     let p = new Promise(async (resolve, reject) => {
       let current = ''
-      await sendRequestFull('/backend-api/conversation', req.method, body, JSON.parse(JSON.stringify(req.headers)), data => {
+      let res = await sendRequestFull('/backend-api/conversation', req.method, body, JSON.parse(JSON.stringify(req.headers)), data => {
         // logger.info(data)
         if (data === '[DONE]') {
           resolve(current)
@@ -205,8 +205,15 @@ app.post('/v1/chat/completions', async function (req, res) {
           }
         }
       })
+      if (res.error) {
+        resolve(res)
+      }
     })
     let response = await p
+    if (response.error) {
+        res.status(response.error.statusCode).send(response)
+        return
+    }
     let result = {
       "id": "cmpl-" + id,
       "object": "chat.completion",
