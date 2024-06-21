@@ -668,11 +668,15 @@ async function getPow(seed, difficulty) {
     return e[Math.floor(Math.random() * e.length)]
   }
 
+  function getRandomNumber(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+
   function getConfig() {
     var e, t, n, r, a, i, s, l;
     return [
       // (null === (e = navigator) || void 0 === e ? void 0 : e.hardwareConcurrency) + (null === (t = screen) || void 0 === t ? void 0 : t.width) + (null === (n = screen) || void 0 === n ? void 0 : n.height),
-      (null === (e = navigator) || void 0 === e ? void 0 : 16) + (null === (t = screen) || void 0 === t ? void 0 : 2195) + (null === (n = screen) || void 0 === n ? void 0 : 1235),
+      (null === (e = navigator) || void 0 === e ? void 0 : 16) + (null === (t = screen) || void 0 === t ? void 0 : getRandomNumber(2100, 2250)) + (null === (n = screen) || void 0 === n ? void 0 : getRandomNumber(1200, 1250)),
       "" + new Date,
       // null === (r = performance) || void 0 === r || null === (r = r.memory) || void 0 === r ? void 0 : r.jsHeapSizeLimit,
       4294705152,
@@ -698,7 +702,7 @@ async function getPow(seed, difficulty) {
       }(), o(Object.keys(document)), o(Object.keys(window))]
   }
 
-  const maxAttempts = 50000
+  const maxAttempts = 100000
 
   async function _generateAnswer(e, t) {
     let n = "e"
