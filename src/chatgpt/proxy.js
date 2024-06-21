@@ -95,7 +95,7 @@ async function getAccessToken(token, useCache = true) {
     return {
         accessToken,
         expires,
-        isNext: token.length > 2500
+        isNext: token?.length > 2500
     }
 }
 
